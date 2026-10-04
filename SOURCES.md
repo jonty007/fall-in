@@ -7,7 +7,7 @@ checked against.
 
 Fact-checking was done with web search on 2026‑10‑04. Direct page fetches were blocked by the build environment's
 network policy, so quotations from the Interstellar paper are taken from search-engine extracts of the arXiv PDF
-(consistent across several extracts). The wording used on screen ("Interstellar left this out, on purpose.") relies
+(consistent across several extracts). The wording used on screen ("How *Interstellar* showed it / Doppler left out, on purpose.") relies
 only on the paper's plainly stated point that Nolan and Franklin *chose to omit the Doppler shifts*.
 
 ## Black-hole physics (Schwarzschild, non-spinning)
@@ -20,9 +20,11 @@ only on the paper's plainly stated point that Nolan and Franklin *chose to omit 
 | Shadow seen by a static observer | `sin α = (√27 M / r)·√(1 − 2M/r)`; at r = 3M the shadow fills half the sky; at r = 1.7 rₛ it covers ≈ 40 % of the sky | Synge 1966; Perlick & Tsupko 2022 (computed in `physics.js: shadowHalfAngle`) |
 | Innermost stable circular orbit | `r = 6GM/c² = 3 rₛ` | Bardeen, Press & Teukolsky 1972 |
 | Orbital speed at the ISCO (local static observer) | `v = c/2` | Bardeen, Press & Teukolsky 1972; follows from `v = √(M/(r − 2M))` |
-| Clock rate of a static observer | `dτ/dt = √(1 − rₛ/r)` (0.64 at 1.7 rₛ) | MTW §25; Carroll ch. 7 |
+| Clock rate of a static observer | `dτ/dt = √(1 − rₛ/r)` = 0.642 at the closest point, 1.7 rₛ ("time runs 36% slower") | MTW §25; Carroll ch. 7 |
+| Starlight seen by that observer | blueshifted by `1/√(1 − rₛ/r)` = 1.56 at 1.7 rₛ ("starlight 1.56× bluer") | same (gravitational blueshift of light falling in from infinity) |
 | Redshift of disk light | `g = 1 / [√(1 − 2M/r_cam) · uᵗ · (1 − Ω b_z)]`, `uᵗ = 1/√(1 − 3M/r)`, `Ω = √(M/r³)`; edge-on at the ISCO g = 1.41 (approaching) and 0.47 (receding) | standard; e.g. Luminet 1979, A&A 75, 228; computed in `physics.js: diskG` |
 | Brightness of shifted light | `I_ν/ν³` is invariant along a ray, so a blackbody at T is seen as a blackbody at gT; bolometric intensity ∝ g⁴ | MTW §22.6; Rybicki & Lightman 1979 §4.9 |
+| "Approaching side: up to 81× brighter than receding." | (g₊/g₋)⁴ = (1.414/0.471)⁴ = 81: bolometric surface brightness of gas on the ISCO moving straight toward vs away from a distant edge-on observer ("up to": the extreme case) | follows from the two rows above; computed live in `overlay.js` |
 | Disk temperature profile | Novikov–Thorne / Page–Thorne thin disk, zero torque at the ISCO, `T ∝ F^{1/4}`; peak at r ≈ 9.6 GM/c² | Page & Thorne 1974, ApJ 191, 499; Novikov & Thorne 1973 (in *Black Holes*, eds. DeWitt & DeWitt); closed form for a = 0 checked numerically against the integral (agreement to 10⁻⁵) — see `physics.js` |
 
 ## Interstellar
@@ -47,10 +49,10 @@ only on the paper's plainly stated point that Nolan and Franklin *chose to omit 
 |-----------|-------|--------|
 | First image published | 10 April 2019 | EHT Collaboration 2019, Paper I, ApJL 875, L1 (arXiv:1906.11238); ESO press release eso1907 |
 | Observations | 5, 6, 10, 11 April 2017, at 1.3 mm (≈ 230 GHz) | Paper I |
-| Ring diameter | 42 ± 3 µas ("≈ 42 µas") | Paper I |
-| Mass | (6.5 ± 0.7) × 10⁹ M☉ ("≈ 6.5 billion Suns") | Paper VI, ApJL 875, L6 (arXiv:1906.11243) |
+| Ring diameter (sets the blur scale; not on screen in the final cut) | 42 ± 3 µas | Paper I |
+| Mass (not on screen in the final cut) | (6.5 ± 0.7) × 10⁹ M☉ | Paper VI, ApJL 875, L6 (arXiv:1906.11243) |
 | Distance | 16.8 ± 0.8 Mpc ≈ 55 million light-years | Paper I / VI |
-| Appearance | an asymmetric bright ring around a central brightness depression; brighter in the south (bottom) in 2017 | Paper I |
+| Appearance ("Like M87* (EHT 2019): brighter at the bottom.") | an asymmetric bright ring around a central brightness depression; brighter in the south (bottom) in the 2017 data published in 2019. Our render, rolled so its approaching side is at the bottom, measures ≈ 1.5× brighter in its bottom half | Paper I |
 | Why one side is brighter | "relativistic beaming of the emission from a plasma rotating close to the speed of light" | Paper I; Paper V, ApJL 875, L5 |
 | Viewing angle | jet ≈ 17° from the line of sight | Walker et al. 2018, ApJ 855, 128 (arXiv:1802.06166); adopted in Paper V |
 | Resolution used for the blur | ≈ 20 µas effective (≈ 25 µas nominal λ/D) | Paper I / ESO press release |
