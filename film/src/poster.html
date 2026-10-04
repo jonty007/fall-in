@@ -43,9 +43,7 @@ window.render = async () => {
     ctx.save();
     ctx.font = font; ctx.letterSpacing = spacing; ctx.textAlign = 'center'; ctx.fillStyle = color; ctx.globalAlpha = alpha;
     const em = parseFloat(spacing), px = parseFloat(font.match(/(\d+)px/)[1]);
-    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 30 * s;
-    ctx.fillText(str, x + (em * px) / 2, y);
-    ctx.shadowBlur = 0; ctx.fillText(str, x + (em * px) / 2, y);
+    ctx.fillText(str, x + (em * px) / 2, y);   // no halo: the type sits on black, as in the film
     ctx.restore();
   };
   text('What would you actually see?', 'italic 400 62px "Cormorant Garamond"', '#FFF3E3', 600, 1342, '0.01em');

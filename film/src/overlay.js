@@ -129,7 +129,10 @@ const PHOTON_GEO = (() => {
   ];
   return set.map((s) => {
     const r = traceCartesian(-60, s.b, 1, 0, { maxLen: 260, stop: (x0, y0, x1, y1) => (x1 < -60 || x1 > 60 || Math.abs(y1) > 60 ? 'out' : null) });
-    return { ...s, pts: r.pts, end: r.end };
+    // traced from far away (exact shape), drawn from just outside the visible area so the
+    // drawing time is spent where the bending happens
+    const i0 = Math.max(0, r.pts.findIndex(([x]) => x > -13));
+    return { ...s, pts: r.pts.slice(i0), end: r.end };
   });
 })();
 

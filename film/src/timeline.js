@@ -9,7 +9,7 @@ export const BEATS = [
   { id: 'hook', name: 'Hook', t0: 0, t1: 7, still: 3.6 },
   { id: 'title', name: 'Title', t0: 7, t1: 13, still: 10.2 },
   { id: 'gravity', name: 'Gravity bends light', t0: 13, t1: 30, still: 24.5 },
-  { id: 'photon', name: 'Photon sphere', t0: 30, t1: 46, still: 41.0 },
+  { id: 'photon', name: 'Photon sphere', t0: 30, t1: 46, still: 43.9 },
   { id: 'isco', name: 'Innermost stable orbit', t0: 46, t1: 60, still: 55.5 },
   { id: 'doppler', name: 'Doppler beaming', t0: 60, t1: 76, still: 64.5 },
   { id: 'close', name: 'Close orbit', t0: 76, t1: 90, still: 84.8 },
