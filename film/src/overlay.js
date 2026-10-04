@@ -155,12 +155,12 @@ export function mainProg(lt) {
   return idx / (n - 1);
 }
 
-// Top view for the ISCO: a stable circular orbit outside it, and matter released just inside
-// it (2.95 rs, 2 % below the ISCO's angular momentum) spiralling into the horizon (timelike geodesics)
+// Top view for the ISCO: a stable circular orbit outside it, and matter released inside it (2.6 rs, with
+// the ISCO's own angular momentum) spiralling into the horizon in ≈ 1.3 turns (timelike geodesics)
 const ISCO_GEO = (() => {
-  const stableR = 9.0, plungeR = 5.9;
+  const stableR = 9.0, plungeR = 5.2;
   const st = P.traceMatter({ r0: stableR, L: P.circularL(stableR), dphi: 0.01, maxPhi: 2 * Math.PI + 0.02 });
-  const pl = P.traceMatter({ r0: plungeR, L: P.circularL(6) * 0.98, ur0: 0.0, dphi: 0.01, maxPhi: 30 * Math.PI });
+  const pl = P.traceMatter({ r0: plungeR, L: P.circularL(6), ur0: 0.0, dphi: 0.01, maxPhi: 30 * Math.PI });
   const toXY = (pts) => pts.map(([r, phi]) => [r * Math.cos(phi), r * Math.sin(phi)]);
   return { stable: toXY(st.pts), plunge: toXY(pl.pts), plunged: pl.plunged, stableR, plungeR };
 })();
@@ -172,10 +172,11 @@ const SUB = { 'ₛ': 's' }, SUP = { '¹': '1', '²': '2', '³': '3', '⁴': '4' 
 const KERN = { 'FALL IN': { IN: -0.035 } };   // em; letter-spacing is included by measureText
 function runs(str) {
   const out = [];
-  let buf = '';
-  const flush = () => { if (buf) { out.push({ t: 'n', s: buf }); buf = ''; } };
+  let buf = '', it = false;
+  const flush = () => { if (buf) { out.push({ t: 'n', s: buf, it }); buf = ''; } };
   for (const ch of str) {
-    if (SUB[ch]) { flush(); out.push({ t: 'sub', s: SUB[ch] }); }
+    if (ch === '*') { flush(); it = !it; }   // *title* is set in italic
+    else if (SUB[ch]) { flush(); out.push({ t: 'sub', s: SUB[ch] }); }
     else if (SUP[ch]) { flush(); out.push({ t: 'sup', s: SUP[ch] }); }
     else if (ch === '≈') { flush(); out.push({ t: 'approx' }); }
     else buf += ch;
@@ -230,10 +231,10 @@ export class Overlay {
         ctx.globalAlpha = a * 0.85;
         ctx.strokeStyle = COL.white; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ax, ay); ctx.stroke();
-        // the end marker: a dark dot in a cream ring, which reads the same on bright and dim disk
+        // the end marker: a cream dot with a thin dark edge, one style on bright and dim disk
         ctx.globalAlpha = a;
-        ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.beginPath(); ctx.arc(ax, ay, 5.5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = COL.white; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ax, ay, 5.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = COL.white; ctx.beginPath(); ctx.arc(ax, ay, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ax, ay, 5.75, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
         this.lines.push({ pts: [[sx, sy], [ax, ay]], kind: 'readout leader', own: lines[lines.length - 1], a });
       }
@@ -301,7 +302,7 @@ export class Overlay {
   }
 
   // ------------------------------------------------------------------ text
-  font(f, scale = 1) { return `${f.style} ${f.weight} ${f.size * scale}px "${f.family}"`; }
+  font(f, scale = 1, it = false) { return `${it ? 'italic' : f.style} ${f.weight} ${f.size * scale}px "${f.family}"`; }
 
   measure(ctx, str, f) {
     let w = 0;
@@ -311,7 +312,7 @@ export class Overlay {
   runWidth(ctx, r, f) {
     if (r.t === 'approx') return f.size * 0.62;
     const sc = r.t === 'n' ? 1 : 0.76;
-    ctx.font = this.font(f, sc);
+    ctx.font = this.font(f, sc, !!r.it);
     ctx.letterSpacing = `${f.spacing * f.size * sc}px`;
     return ctx.measureText(r.s).width;
   }
@@ -445,9 +446,10 @@ export class Overlay {
       this.circle(ctx, cx, cy, 3 * scale, 'photon sphere');
     }
     if (isco) {
-      // dotted, and broken on the left where its label "3 rₛ" sits on the line itself
-      ctx.setLineDash([3, 7]);
-      ctx.strokeStyle = rgba(COL.white, 0.8);
+      // solid, and broken where its label "3 rₛ" sits on the line itself
+      ctx.setLineDash([]);
+      ctx.lineWidth = 2.0;
+      ctx.strokeStyle = rgba(COL.white, 0.9);
       // (the gap is at the lower right, 30 deg below the horizontal, where the spiral is furthest inside)
       const r = 6 * scale, gap = 0.36, at = Math.PI / 6;
       ctx.beginPath(); ctx.arc(cx, cy, r, at + gap, at - gap + 2 * Math.PI); ctx.stroke();
@@ -511,7 +513,7 @@ export class Overlay {
       for (const ray of RAYS_GEO.rays) {
         const prog = smootherstep(ray.st, ray.st + RAY_DRAW, lt);
         if (prog <= 0) continue;
-        this.path(o, ray.pts, map, prog, { color: rgba(COL.ember, 0.95), width: 3.0 }, true, `${ray.kind} ray`);
+        this.path(o, ray.pts, map, prog, { color: rgba(COL.ember, 0.95), width: 2.4 }, true, `${ray.kind} ray`);
         // emission point on the disk
         const [ex, ey] = map(ray.pts[0]);
         o.fillStyle = rgba(COL.white, 0.95 * Math.min(1, prog * 4));
@@ -534,10 +536,12 @@ export class Overlay {
       o.save();
       o.strokeStyle = rgba(COL.white, 0.8); o.lineWidth = 1.8;
       this.circle(o, cx, cy, 2 * sc, 'horizon');
-      o.setLineDash([4, 10]); o.lineWidth = 1.2; o.strokeStyle = rgba(COL.white, 0.3);
-      this.circle(o, cx, cy, 3 * sc, 'photon sphere');
-      o.restore();
       const T = PHOTON_T;
+      // once the lap is done, the true sphere becomes the dominant stroke and the lap a lighter trace
+      const done = smoothstep(T.exit[1], T.exit[1] + 0.8, lt);
+      if (done < 1) { o.setLineDash([4, 10]); o.lineWidth = 1.2; o.strokeStyle = rgba(COL.white, 0.3 * (1 - done)); this.circle(o, cx, cy, 3 * sc, 'photon sphere'); }
+      if (done > 0) { o.setLineDash([]); o.lineWidth = 2.0; o.strokeStyle = rgba(COL.white, 0.85 * done); this.circle(o, cx, cy, 3 * sc, 'photon sphere'); }
+      o.restore();
       PHOTON_GEO.forEach((ray, i) => {
         if (ray.main) {
           const prog = mainProg(lt);
@@ -545,15 +549,15 @@ export class Overlay {
           const n = Math.max(2, Math.floor(ray.pts.length * prog));
           // while it moves: a faint path with a bright fading trail and a glowing head, so the lap
           // reads as motion; once it has left, the whole path comes up to full strength
-          const base = 0.3 + 0.7 * smoothstep(T.exit[1], T.exit[1] + 0.6, lt);
+          const base = 0.3 + 0.15 * done;   // the lap stays a lighter trace under the true sphere
           this.path(o, ray.pts, map, prog, { color: rgba(COL.white, base), width: 3.2 }, false, 'main ray');
-          if (lt < T.exit[1] + 0.6) {
+          if (lt < T.exit[1] + 0.8) {
             const trail = 420, k0 = Math.max(0, n - trail);
             for (let c = 0; c < 6; c++) {
               const i0 = Math.floor(k0 + ((n - k0) * c) / 6), i1 = Math.floor(k0 + ((n - k0) * (c + 1)) / 6);
               if (i1 - i0 < 2) continue;
               o.save();
-              o.strokeStyle = rgba(COL.white, (1 - base) * ((c + 1) / 6));
+              o.strokeStyle = rgba(COL.white, (1 - base) * ((c + 1) / 6) * (1 - done));
               o.lineWidth = 3.2; o.lineCap = 'round'; o.lineJoin = 'round';
               o.beginPath();
               for (let k = i0; k <= Math.min(i1, n - 1); k++) { const [X, Y] = map(ray.pts[k]); if (k === i0) o.moveTo(X, Y); else o.lineTo(X, Y); }
@@ -579,7 +583,7 @@ export class Overlay {
       this.endDiagram();
       // labels at the end of each ray (the photon sphere from its free left side, during the lap)
       this.dlabel(ctx, `photon sphere, ${(PHYS.ph.r / 2).toFixed(1)} rₛ`, cx - 3 * sc, cy, cx - 3 * sc - 76, cy + 12, a * smoothstep(2.4, 3.2, lt), 'right');
-      this.text('falls in', 'label', cx + 78, cy + 48, a * smoothstep(T.branch + 1.4, T.branch + 2.2, lt), 'right', COL.ember);
+      this.text('falls in', 'label', cx + 90, cy + 46, a * smoothstep(T.branch + 1.4, T.branch + 2.2, lt), 'right', COL.ember);
       const R = (k) => PHOTON_GEO.find((r) => (k === 'main' ? r.main : r.kind === k));
       const tag = (ray, txt, dx, align, t0) => {
         const ta = a * smoothstep(t0, t0 + 0.8, lt);
@@ -594,12 +598,15 @@ export class Overlay {
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
       const o = this.beginDiagram(cx, cy, 345, 345, a);
       this.hole(o, cx, cy, sc, { isco: true });
-      this.path(o, ISCO_GEO.stable, map, smootherstep(0.8, 6.0, lt), { color: rgba(COL.white, 0.9), width: 2.0 }, true, 'stable orbit');
+      this.path(o, ISCO_GEO.stable, map, smootherstep(0.8, 6.0, lt), { color: rgba(COL.white, 0.7), width: 1.6 }, true, 'stable orbit');
       this.path(o, ISCO_GEO.plunge, map, smootherstep(PLUNGE.st, PLUNGE.st + PLUNGE.dur, lt), { color: rgba(COL.ember, 0.95), width: 2.2 }, true, 'plunge');
       this.endDiagram();
       const la = a * smoothstep(2.0, 3.0, lt);
       this.text('stays in orbit', 'label', cx, cy - ISCO_GEO.stableR * sc - 22, la, 'center');
-      this.text('spirals in', 'label', cx, cy + 7.3 * sc + 10, la * smoothstep(PLUNGE.st + 2, PLUNGE.st + 3, lt), 'center', COL.ember);
+      // the spiral is named below the diagram on a leader from its lowest point
+      const low = ISCO_GEO.plunge.reduce((m, p) => (p[1] < m[1] ? p : m), [0, 0]);
+      const [lx0, ly0] = map(low);
+      this.dlabel(ctx, 'spirals in', lx0, ly0, cx, cy + ISCO_GEO.stableR * sc + 50, la * smoothstep(PLUNGE.st + 2, PLUNGE.st + 3, lt), 'center', COL.ember);
       this.text('3 rₛ', 'label', cx + 6 * sc * Math.cos(Math.PI / 6), cy + 6 * sc * Math.sin(Math.PI / 6) + 12, la, 'center');
     }
   }

@@ -395,3 +395,24 @@ lifted 70 px, away from the rendered disk's wing; the title kerns I–N a little
 Also from round 7: payoff labels hung off the seam at equal gaps and a tighter split; "And back to the real view"
 held for 2 s at full strength; leader end markers drawn the same on bright and dim disk; the warmest stars now
 start at 5200 K (no orange stars).
+
+### Round 8 — the reviewer found nothing structural; the remaining findings and what was done
+
+1. **"And back to the real view" never reached full strength in the 2 s samples.** → Held at 100 % for ≈ 1.8 s
+   with the standard fades.
+2. **The near disk in the Doppler shot had the least fine detail on screen.** → The streak noise gained two finer
+   octaves, used only where the pixel footprint is small enough (octaves already filtered away are skipped, so
+   distant hits cost nothing extra).
+3. **Photon diagram end state: the lap trace ran 6–12 px off the dotted sphere; "falls in" 25 px from its ray.**
+   → Once the lap is done the true photon sphere becomes a solid 2 px circle and the lap drops to a light trace
+   under it; "falls in" sits right at the end of the orange ray.
+4. **ISCO diagram end state: the 3 rₛ circle was the faintest stroke and the spiral ran just inside it.** → The
+   3 rₛ circle is solid and the strongest stroke (the stable orbit is lighter); the plunging matter now starts at
+   2.6 rₛ with the ISCO's own angular momentum, clearly inside the circle (≈ 1.3 turns to the horizon); "spirals
+   in" is set below the diagram on a leader from the spiral.
+5. **"Interstellar" in roman.** → Set in Cormorant italic (titles are italic), with a small markup in the text
+   renderer.
+
+Also: the payoff blur wipe now starts at the ring's right edge and fades in, so it is visibly under way when its
+caption lands; the end-card lockup moved down ≈ 55 px; one leader end-marker style; thinner gravity rays where they
+converge on the observer.

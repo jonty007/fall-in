@@ -85,8 +85,8 @@ const CAM = [
   [91.6, 560, 17.0, 226, 0, 0, 90, 11, 13.0],
   [104.6, 620, 17.0, 236, 0, 0, 90, 10.5, 13.0],
   // end card: the ring, smaller and whole, above the title
-  [105.8, 470, 17.0, 237, 3.0, 0, 90, 15, 13.0],
-  [108.0, 478, 17.0, 238, 3.1, 0, 90, 15, 13.0],
+  [105.8, 470, 17.0, 237, 2.2, 0, 90, 15, 13.0],
+  [108.0, 478, 17.0, 238, 2.3, 0, 90, 15, 13.0],
 ];
 const ch = (k) => CAM.map((row) => [row[0], k === 1 ? Math.log(row[1]) : row[k]]);
 const CH = { r: ch(1), incl: ch(2), az: ch(3), yaw: ch(4), pitch: ch(5), roll: ch(6), fov: ch(7), exposure: ch(8) };
@@ -116,7 +116,7 @@ export function cameraAt(t) {
 const WIPE = [[60, 0], [67.2, 0], [69.2, 1], [73.6, 1], [75.6, 0], [76, 0]];
 // Telescope blur divider for the payoff: blurred to the right of the divider. It stops at the
 // centre, so the frame ends as a side-by-side: sharp on the left, EHT resolution on the right.
-const TELE = [[90, 1.05], [95.2, 1.05], [98.6, 0.5], [104.4, 0.5], [105.6, 1.05], [108, 1.05]];
+const TELE = [[90, 0.67], [95.0, 0.67], [97.8, 0.5], [104.4, 0.5], [105.6, 1.05], [108, 1.05]];   // starts at the ring's right edge
 // the photon-sphere diagram interlude: the shot fades out completely (no second hole behind the diagram)
 const DIM = [[0, 1], [37.2, 1], [38.4, 0.0], [45.6, 0.0], [46.6, 1], [108, 1]];
 
@@ -149,7 +149,7 @@ export function effectsAt(t) {
   const fadeOut = (1 - 0.25 * smootherstep(104.6, 105.8, t)) * (1 - smootherstep(107.25, 107.85, t));
   return {
     wipe: [0, 0, 0, 1 - Math.min(Math.max(wipeX, 0), 1)],   // x, softness, split on/off, beaming amount
-    teleSplit: [teleX, 0.0025, t > 94 && t < 105.8 ? 1 : 0, 0],
+    teleSplit: [teleX, 0.0025, smoothstep(94.2, 95.0, t) * (t < 105.8 ? 1 : 0), 0],
     // dimmed for the photon-sphere diagram; eased down while the no-Doppler disk (brighter, flatter) fills the frame
     dim: monotone(DIM, t) * (t > 60 && t < 76 ? 1 - 0.32 * Math.min(Math.max(wipeX, 0), 1) : 1),
     fade: fadeIn * fadeOut,
@@ -181,20 +181,20 @@ export const CUES = [
 
   { t0: 62.6, t1: 67.0, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
   { t0: 63.0, t1: 67.0, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
-  { t0: 69.0, t1: 73.6, kind: 'headline', text: 'How Interstellar showed it', x: 960, y: 150, align: 'center' },
+  { t0: 69.0, t1: 73.6, kind: 'headline', text: 'How *Interstellar* showed it', x: 960, y: 150, align: 'center' },
   { t0: 69.4, t1: 73.6, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
-  { t0: 73.6, t1: 76.4, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
+  { t0: 73.5, t1: 76.7, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
 
   { t0: 81.3, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
   { t0: 81.5, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
 
   { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
-  { t0: 95.2, t1: 99.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
+  { t0: 95.4, t1: 99.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
   { t0: 99.8, t1: 104.2, kind: 'caption', text: 'Like M87* (EHT, 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
 
   // the 3 s end card: in by 105.4 s, held, then picture and type fade out together to black by 107.85 s
-  { t0: 104.9, t1: 107.85, kind: 'title', text: 'FALL IN', x: 960, y: 760, align: 'center', fade: 0.55 },
-  { t0: 105.05, t1: 107.85, kind: 'credit', text: 'Made by @vivekst1 with Claude Opus 5.5 from one prompt', x: 960, y: 858, align: 'center', fade: 0.55 },
+  { t0: 104.9, t1: 107.85, kind: 'title', text: 'FALL IN', x: 960, y: 812, align: 'center', fade: 0.55 },
+  { t0: 105.05, t1: 107.85, kind: 'credit', text: 'Made by @vivekst1 with Claude Opus 5.5 from one prompt', x: 960, y: 910, align: 'center', fade: 0.55 },
 ];
 
 // Readout blocks (mono). `lines` is a function of (t, cam, phys) so physics values
@@ -210,7 +210,7 @@ export const READOUTS = [
 
 // Small labels pinned to screen positions
 export const LABELS = [
-  { t0: 98.8, t1: 104.2, kind: 'split' },   // the payoff's side-by-side: "sharp" | "EHT resolution"
+  { t0: 98.0, t1: 104.2, kind: 'split' },   // the payoff's side-by-side: "sharp" | "EHT resolution"
 ];
 
 // Side panels
@@ -237,7 +237,7 @@ export const HITS = {
   silenceStart: 86.0,
   silenceEnd: 87.0,
   payoff: 90.0,
-  blur: 95.2,
+  blur: 95.0,
   end: 105.0,
 };
 

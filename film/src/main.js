@@ -94,6 +94,7 @@ window.seek = async (t, opts = {}) => {
 await Promise.all([
   document.fonts.load('500 64px "Cormorant Garamond"'),
   document.fonts.load('italic 400 70px "Cormorant Garamond"'),
+  document.fonts.load('italic 500 64px "Cormorant Garamond"'),
   document.fonts.load('300 132px "Jost"'),
   document.fonts.load('400 38px "Jost"'),
   document.fonts.load('400 25px "IBM Plex Mono"'),

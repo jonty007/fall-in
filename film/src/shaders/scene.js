@@ -97,8 +97,9 @@ float diskProfile(float r) {
 // cross-faded, so the pattern spirals and never winds up into noise.
 float fbm(vec3 p, float lod) {
   float a = 0.5, s = 0.0, n = 0.0;
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 8; i++) {
     float fade = 1.0 - smoothstep(0.2, 0.9, lod * exp2(float(i)));  // drop octaves finer than the pixel footprint (smoothly, over ~2 octaves)
+    if (fade <= 0.0) { n += a * (1.0 - pow(0.46, float(8 - i))) / (1.0 - 0.46); break; }   // the rest are filtered away
     s += a * fade * snoise(p);
     n += a;
     p = p * 2.03 + vec3(1.7, 9.2, 3.1);
