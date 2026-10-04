@@ -93,7 +93,7 @@ float diskProfile(float r) {
 float fbm(vec3 p, float lod) {
   float a = 0.5, s = 0.0, n = 0.0;
   for (int i = 0; i < 6; i++) {
-    float fade = clamp(1.5 - lod * exp2(float(i)), 0.0, 1.0);  // drop octaves finer than the pixel footprint
+    float fade = 1.0 - smoothstep(0.2, 0.9, lod * exp2(float(i)));  // drop octaves finer than the pixel footprint (smoothly, over ~2 octaves)
     s += a * fade * snoise(p);
     n += a;
     p = p * 2.03 + vec3(1.7, 9.2, 3.1);
@@ -105,7 +105,7 @@ float fbm(vec3 p, float lod) {
 float fbm3(vec3 p, float lod) {
   float a = 0.5, s = 0.0, n = 0.0;
   for (int i = 0; i < 3; i++) {
-    float fade = clamp(1.5 - lod * exp2(float(i)), 0.0, 1.0);
+    float fade = 1.0 - smoothstep(0.2, 0.9, lod * exp2(float(i)));
     s += a * fade * snoise(p);
     n += a;
     p = p * 2.07 + vec3(4.1, 2.3, 7.7);
@@ -127,11 +127,10 @@ float diskLayer(float r, float ang, float lr, float age, float seed, float lod) 
   vec2 cs2 = vec2(cos(sa), sin(sa));
   vec3 p2 = vec3(cs2 * 5.0, lr * 9.0 + seed * 3.17 + big * 1.1);
   float streak = fbm(p2, lod);
-  // thin bright filaments
-  vec3 q = vec3(cs2 * 9.0, lr * 24.0 + seed * 5.3 + big * 2.0);
-  float fil = 1.0 - abs(snoise(q));
-  float filFade = clamp(1.5 - lod * 4.0, 0.0, 1.0);
-  return big * 0.9 + streak * 0.42 + (fil * fil * fil - 0.3) * 0.28 * filFade;
+  // fine wisps: smooth (no ridges, whose cusps alias), faded by the pixel footprint
+  vec3 q = vec3(cs2 * 9.0, lr * 22.0 + seed * 5.3 + big * 2.0);
+  float wisp = snoise(q) * (1.0 - smoothstep(0.2, 0.9, lod * 2.4));
+  return big * 0.9 + streak * 0.45 + wisp * 0.18;
 }
 
 // returns rgb emission (already * alpha) and alpha
@@ -149,11 +148,13 @@ vec4 diskSample(vec3 P, float r, float cosInc, float g, float lod) {
     n += w * diskLayer(r, ang, lr, fr * PERIOD, cyc * 2.0 + float(k), lod);
   }
   // radial structure: soft outer fade, crisp ISCO edge
-  float edgeW = max(0.04, lod * r * 0.6);
-  float inner = smoothstep(uRin, uRin + edgeW, r);
+  // inner edge filtered with the pixel footprint (coverage), so thin lensed rings don't sparkle
+  float edgeW = clamp(lod * r / 13.5, 0.03, 1.5);
+  float inner = smoothstep(uRin - edgeW, uRin + edgeW, r);
   float outer = 1.0 - smoothstep(uRout * 0.55, uRout, r);
-  float dens = inner * outer * clamp(0.55 + 1.6 * n, 0.0, 1.8);
-  float tau = 1.6 * dens / max(abs(cosInc), 0.08);
+  // optically thick body (thin disks are), wispy and translucent toward the outer edge
+  float dens = inner * outer * clamp(0.85 + 1.3 * n, 0.08, 1.8);
+  float tau = 4.0 * dens / max(abs(cosInc), 0.08);
   float alpha = 1.0 - exp(-tau);
   float T = uTpeak * diskProfile(r) * (0.9 + 0.22 * clamp(n, -1.0, 1.0)) * g;
   vec3 em = blackbody(T) * uDiskGain;
@@ -275,10 +276,10 @@ vec3 sky(vec3 D, Lens L, float gsky) {
   return col;
 }
 
-void main() {
-  vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / (0.5 * uRes.y);
-  vec3 d = normalize(uCamFwd + uTanHalfFov * (p.x * uCamRight + p.y * uCamUp));
+// ---------------------------------------------------------------- one ray
+struct Hit { vec3 P; vec3 D; };   // D = (r, cos incidence, g)
 
+void trace(vec3 d, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh, out bool escaped, out vec3 Dsky, out float bImpact) {
   float r0 = length(uCamPos);
   vec3 e1 = uCamPos / r0;
   float cosA = dot(d, e1);
@@ -292,24 +293,21 @@ void main() {
   float u = 1.0 / r0;
   float w = -u * sf0 * cosA / sinA;          // du/dphi from the locally measured angle
   float b = r0 * sinA / sf0;                  // impact parameter
+  bImpact = b;
   vec3  nrm = cross(e1, e2);                  // orbital plane normal (tracing direction)
   float bz = -b * nrm.y * uSpin;              // photon angular momentum along the gas motion
 
   // phi of disk-plane crossings: cos(phi) e1.y + sin(phi) e2.y = 0
-  float A = e1.y, B = e2.y;
-  float phi0 = atan(B, A) + 0.5 * PI;
+  float phi0 = atan(e2.y, e1.y) + 0.5 * PI;
   float nextCross = mod(phi0, PI);
   if (nextCross < 1e-6) nextCross += PI;
 
-  float wipe = uWipe.z > 0.5 ? smoothstep(uWipe.x - uWipe.y, uWipe.x + uWipe.y, gl_FragCoord.x / uRes.x) : uWipe.w;
-
-  vec3 col = vec3(0.0);
-  float trans = 1.0;
   float phi = 0.0;
-  bool escaped = false, captured = false;
+  escaped = false;
   float phiEsc = 0.0;
-  float crossings = 0.0;
-  float pixAng = 2.0 * uTanHalfFov / uRes.y;
+  h0 = Hit(vec3(0.0), vec3(1.0, 1.0, 1.0)); h1 = h0; h2 = h0;
+  nh = 0;
+  float transEst = 1.0;
 
   for (int i = 0; i < MAX_STEPS; i++) {
     // step size: fine near the photon sphere, coarse far away (the equation is
@@ -346,16 +344,16 @@ void main() {
     // disk-plane crossing inside this step
     if (nextCross <= phi + h) {
       float s = (nextCross - phi) / h;
-      if (s < sEsc) {
+      if (s < sEsc && nh < 3) {
         float s2 = s * s, s3 = s2 * s;
         float uc = (2.0*s3 - 3.0*s2 + 1.0) * u + (s3 - 2.0*s2 + s) * w * h + (-2.0*s3 + 3.0*s2) * un + (s3 - s2) * wn * h;
         float wc = ((6.0*s2 - 6.0*s) * u + (3.0*s2 - 4.0*s + 1.0) * w * h + (-6.0*s2 + 6.0*s) * un + (3.0*s2 - 2.0*s) * wn * h) / h;
         float rc = 1.0 / max(uc, 1e-6);
-        if (rc > uRin - 0.5 && rc < uRout && uc > 0.0) {
+        if (rc > max(uRin - 2.0, 3.05) && rc < uRout && uc > 0.0) {
           float cp = cos(nextCross), sp = sin(nextCross);
-          vec3 P = (cp * e1 + sp * e2) * rc;
-          // local photon direction (static frame) to get the incidence angle on the disk
           vec3 radial = cp * e1 + sp * e2;
+          vec3 P = radial * rc;
+          // local photon direction (static frame) to get the incidence angle on the disk
           vec3 tang = -sp * e1 + cp * e2;
           float drdphi = -wc * rc * rc;
           float fc = 1.0 - 2.0 / rc;
@@ -365,38 +363,90 @@ void main() {
           float ut = inversesqrt(max(1.0 - 3.0 / rc, 1e-4));
           float Om = pow(rc, -1.5);
           float gD = 1.0 / (sf0 * ut * (1.0 - Om * bz));
-          float gNo = 1.0;                                  // no frequency shifts at all, as rendered for Interstellar (James et al. 2015, fig. 15a)
-          float g = mix(gNo, gD, wipe);
-          float dist = (crossings < 0.5) ? length(P - uCamPos) : (length(P - uCamPos) * (2.0 + 4.0 * crossings));
-          float lod = dist * pixAng / max(abs(cosInc), 0.15) / rc;   // footprint relative to radius
-          vec4 ds = diskSample(P, rc, cosInc, g, lod * 9.0);
-          col += trans * ds.rgb;
-          trans *= 1.0 - ds.a;
-          crossings += 1.0;
+          float gNo = 1.0;   // no frequency shifts at all, as rendered for Interstellar (James et al. 2015, fig. 15a)
+          Hit hh = Hit(P, vec3(rc, cosInc, mix(gNo, gD, wipe)));
+          if (nh == 0) h0 = hh; else if (nh == 1) h1 = hh; else h2 = hh;
+          nh++;
+          // conservative opacity estimate from the radial envelope, for early exit only
+          float env = smoothstep(uRin, uRin + 0.3, rc) * (1.0 - smoothstep(uRout * 0.55, uRout, rc));
+          transEst *= exp(-3.0 * env / max(abs(cosInc), 0.08));
         }
       }
       nextCross += PI;
     }
 
     if (sEsc <= 1.0) { escaped = true; phiEsc = phi + sEsc * h; break; }
-    if (un > 0.338) { captured = true; break; }   // inside the photon sphere moving in: falls in
-    if (trans < 0.003) break;
+    if (un > 0.338) break;          // inside the photon sphere moving in: falls in
+    if (transEst < 0.01 || nh >= 3) break;
     phi += h; u = un; w = wn;
   }
+  Dsky = escaped ? (cos(phiEsc) * e1 + sin(phiEsc) * e2) : d;
+}
 
-  vec3 Dsky = escaped ? (cos(phiEsc) * e1 + sin(phiEsc) * e2) : d;
+vec3 shade(Hit h0, Hit h1, Hit h2, int nh, vec3 fp, bool escaped, vec3 Dsky, Lens L, float gsky) {
+  vec3 col = vec3(0.0);
+  float trans = 1.0;
+  for (int k = 0; k < 3; k++) {
+    if (k >= nh || trans < 0.002) break;
+    Hit h = h2;
+    if (k == 0) h = h0; else if (k == 1) h = h1;
+    float f = k == 0 ? fp.x : (k == 1 ? fp.y : fp.z);
+    float lod = f / h.D.x * 9.0 * (k == 0 ? 2.0 : 4.0);   // lensed images get a more conservative filter
+    vec4 ds = diskSample(h.P, h.D.x, h.D.y, h.D.z, lod);
+    col += trans * ds.rgb;
+    trans *= 1.0 - ds.a;
+  }
+  if (escaped && trans > 0.003) col += trans * sky(Dsky, L, gsky);
+  return col;
+}
+
+void main() {
+  vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / (0.5 * uRes.y);
+  vec3 d = normalize(uCamFwd + uTanHalfFov * (p.x * uCamRight + p.y * uCamUp));
+  float wipe = uWipe.z > 0.5 ? smoothstep(uWipe.x - uWipe.y, uWipe.x + uWipe.y, gl_FragCoord.x / uRes.x) : uWipe.w;
+  float pixAng = 2.0 * uTanHalfFov / uRes.y;
+  float gsky = inversesqrt(1.0 - 2.0 / length(uCamPos));   // starlight blueshift for the static camera
+
+  Hit h0, h1, h2; int nh; bool escaped; vec3 Dsky; float b;
+  trace(d, wipe, h0, h1, h2, nh, escaped, Dsky, b);
+
+  // texture footprints from screen-space derivatives (uniform control flow)
+  float v0 = nh > 0 ? 1.0 : 0.0, v1 = nh > 1 ? 1.0 : 0.0, v2 = nh > 2 ? 1.0 : 0.0;
+  vec3 fp = vec3(max(length(dFdx(h0.P)), length(dFdy(h0.P))),
+                 max(length(dFdx(h1.P)), length(dFdy(h1.P))),
+                 max(length(dFdx(h2.P)), length(dFdy(h2.P))));
+  vec3 okv = vec3(abs(dFdx(v0)) + abs(dFdy(v0)), abs(dFdx(v1)) + abs(dFdy(v1)), abs(dFdx(v2)) + abs(dFdy(v2)));
+  // where the quad straddles an image boundary, fall back to a generous footprint
+  vec3 fallback = vec3(h0.D.x * 0.004, h1.D.x * 0.05, h2.D.x * 0.05);
+  vec3 cap = vec3(h0.D.x, h1.D.x, h2.D.x) * 0.5;
+  fp = mix(clamp(fp, vec3(0.0), cap), fallback, step(vec3(0.5), okv));
+
   float esc = escaped ? 1.0 : 0.0;
   Lens L;
   L.dx = dFdx(Dsky);
   L.dy = dFdy(Dsky);
-  L.area = length(cross(L.dx, L.dy));
+  L.area = max(length(cross(L.dx, L.dy)), pixAng * pixAng / 400.0);   // cap the magnification (finite stellar size)
   L.ok = (abs(dFdx(esc)) + abs(dFdy(esc)) < 0.5) ? 1.0 : 0.0;
-  // cap the magnification (finite stellar size)
-  L.area = max(L.area, pixAng * pixAng / 400.0);
 
-  if (escaped && trans > 0.003) {
-    col += trans * sky(Dsky, L, 1.0 / sf0);
+  vec3 col = shade(h0, h1, h2, nh, fp, escaped, Dsky, L, gsky);
+
+  // adaptive supersampling of the photon ring: rays whose impact parameter is within
+  // 10 % of the critical value sqrt(27) M form the exponentially thin higher-order images
+  float bc = 5.196152;
+  if (b > 0.99 * bc && b < 1.10 * bc) {
+    Lens Ls = L;
+    Ls.dx *= 0.5; Ls.dy *= 0.5; Ls.area *= 0.25;
+    vec2 offs[4] = vec2[4](vec2(0.125, 0.375), vec2(-0.375, 0.125), vec2(-0.125, -0.375), vec2(0.375, -0.125));
+    for (int j = 0; j < 4; j++) {
+      vec2 ps = p + offs[j] * (2.0 / uRes.y);
+      vec3 ds = normalize(uCamFwd + uTanHalfFov * (ps.x * uCamRight + ps.y * uCamUp));
+      Hit s0, s1, s2; int ns; bool es; vec3 Ds; float bs;
+      trace(ds, wipe, s0, s1, s2, ns, es, Ds, bs);
+      col += shade(s0, s1, s2, ns, fp * 0.5, es, Ds, Ls, gsky);
+    }
+    col /= 5.0;
   }
+
   if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
   fragColor = vec4(max(col, vec3(0.0)), 1.0);
 }

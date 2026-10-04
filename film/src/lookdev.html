@@ -20,10 +20,10 @@ window.shot = async (o) => {
   const pos = sph(o.r, o.incl, o.az);
   const basis = lookBasis(pos, { yaw: o.yaw || 0, pitch: o.pitch || 0, roll: o.roll || 0 });
   const s = Object.assign({
-    fov: 40, diskTime: 0, tPeak: 5200, rIn: 6, rOut: 30, wipe: [0.5, 0.01, 0, 1],
-    diskGain: 1, starGain: 20, galaxyGain: 0.006, spin: 1, exposure: 0.5, bloomThreshold: 2.5,
+    fov: 40, diskTime: 0, tPeak: 3600, rIn: 6, rOut: 30, wipe: [0.5, 0.01, 0, 1],
+    diskGain: 1, starGain: 1, galaxyGain: 0.0004, spin: 1, exposure: 22, bloomThreshold: 2.5,
     bloomStrength: 0.06, teleSplit: [0.5, 0.01, 0, 0], teleSigmaPx: 40, fade: 1, frame: 0,
-    grainPx: devicePixelRatio, vignette: 0.25, look: [1.2, 1.25, 0],
+    grainPx: devicePixelRatio, vignette: 0.25, look: [1, 1, 1],
   }, o, basis);
   const t0 = performance.now();
   await R.render(s, { tileRows: o.tileRows ?? 128 });

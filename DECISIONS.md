@@ -57,3 +57,25 @@ bottom of each heading.
     differs between preview and final.
 12. **Integer hashing (PCG) for all randomness** so the image is identical across GPUs/drivers (float `sin`
     hashes are not).
+
+## Look development
+
+13. **Tone mapping: ACES filmic (Stephen Hill's RRT+ODT fit).** Compared side by side with AgX (base and
+    punchy looks). AgX rendered the blackbody oranges as muddy tan/brown; ACES keeps a saturated ember orange in
+    the body of the disk and rolls the Doppler-boosted gas to warm white, which is the brief's palette.
+14. **Disk temperature scale: T_peak = 3600 K** (after trying 7800, 5200, 4500, 4000 K). Lower values make the
+    disk body read as glowing orange instead of beige; the approaching side still reaches white.
+15. **Inner-edge glow.** The classic zero-torque Page–Thorne disk goes dark at the ISCO (T → 0), so the
+    innermost-stable-orbit beat would have no visible edge. We add the constant term of a small stress at the
+    inner edge (magnetic stresses at the ISCO, Agol & Krolik 2000, ApJ 528, 161): T(r_ISCO) = 0.71 T_peak, the
+    peak stays at r ≈ 9.4 M. The disk still ends exactly at 3 rₛ.
+16. **Optically thick disk.** τ ≈ 4 in the body (thin disks are optically thick), wispy and translucent only toward
+    the outer edge. A translucent body let the lensed underside show through the near side as a ghostly bowl.
+17. **Ridged noise removed** from the disk: its cusps aliased into scratch-like lines at grazing angles.
+18. **Texture filtering from real footprints.** Disk hits are recorded during integration and shaded after the
+    loop, where screen-space derivatives of each hit position give the exact footprint for primary, lensed and
+    photon-ring images. Noise octaves fade smoothly over two octaves to avoid visible per-quad steps.
+19. **Adaptive 4× supersampling of the photon ring.** Rays with impact parameter within 10 % of √27 M form the
+    exponentially thin higher-order images, which point-sampled into a dotted line. Those pixels (a thin annulus)
+    trace four extra rotated-grid rays. The disk's inner edge is also filtered by coverage.
+20. **Look-dev stills** saved in `film/out/lookdev/` (far view, edge-on hero, high view).

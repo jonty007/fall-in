@@ -17,7 +17,7 @@ const { server, port } = await startServer();
 const browser = await launch({ cpu });
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: scale });
 page.on('console', (m) => console.log('[page]', m.text()));
-page.on('pageerror', (e) => console.log('[pageerror]', e.message));
+page.on('pageerror', (e) => { console.log('[pageerror]', e.message.slice(0, 600)); process.exit(1); });
 await page.goto(`http://127.0.0.1:${port}/film/src/lookdev.html`);
 await page.waitForFunction(() => window.ready === true, null, { timeout: 120000 });
 console.log('renderer:', await page.evaluate(() => window.rendererName), 'disk T peak at r =', await page.evaluate(() => window.diskPeak));

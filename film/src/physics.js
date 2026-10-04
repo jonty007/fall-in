@@ -75,7 +75,9 @@ const L_ = (r) => Math.sqrt(r) / Math.sqrt(1 - 3 / r);
 const W_ = (r) => Math.pow(r, -1.5);
 const d = (f, r, h = 1e-5 * r) => (f(r + h) - f(r - h)) / (2 * h);
 
-export function pageThorneFlux(r, rin = R_ISCO) {
+// `torque` adds the constant term of a non-zero stress at the inner edge (magnetic
+// stresses at the ISCO, Agol & Krolik 2000); 0 gives the classic zero-torque disk.
+export function pageThorneFlux(r, rin = R_ISCO, torque = 0) {
   if (r <= rin) return 0;
   // Simpson integration of (E - Omega L) dL/dr from rin to r
   const n = 400;
@@ -87,6 +89,7 @@ export function pageThorneFlux(r, rin = R_ISCO) {
     s += w * (E_(x) - W_(x) * L_(x)) * d(L_, x);
   }
   s *= h / 3;
+  s += torque;
   const EmWL = E_(r) - W_(r) * L_(r);
   return (-d(W_, r) / (EmWL * EmWL)) * s / r; // drop Mdot/4pi
 }
@@ -102,13 +105,15 @@ export function pageThorneFluxClosed(r) {
 
 // Disk temperature profile T(r)/T_peak sampled for the shader on r in [6, R_PROFILE_MAX]
 export const DISK_LUT = { N: 512, R_MIN: 6, R_MAX: 60 };
-export function buildDiskProfile() {
+// Inner-edge stress chosen so the edge glows at ~70 % of the peak temperature (see DECISIONS.md)
+export const INNER_TORQUE = 0.008;
+export function buildDiskProfile(torque = INNER_TORQUE) {
   const { N, R_MIN, R_MAX } = DISK_LUT;
   const T = new Float32Array(N);
   let tmax = 0, rpeak = 0;
   for (let i = 0; i < N; i++) {
     const r = R_MIN + ((R_MAX - R_MIN) * i) / (N - 1);
-    const t = Math.pow(Math.max(pageThorneFlux(r), 0), 0.25);
+    const t = Math.pow(Math.max(pageThorneFlux(Math.max(r, R_MIN + 1e-4), R_ISCO, torque), 0), 0.25);
     T[i] = t;
     if (t > tmax) { tmax = t; rpeak = r; }
   }
