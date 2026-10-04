@@ -1,0 +1,6 @@
+node_modules/
+film/.cache/
+film/out/chunks/
+film/out/tmp/
+*.log
+.DS_Store

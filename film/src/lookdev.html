@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>FALL IN — look dev</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block;width:100vw;height:100vh}</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<script type="module">
+import { Renderer } from './renderer.js';
+import { sph, lookBasis } from './camera.js';
+const c = document.getElementById('gl');
+c.width = Math.round(innerWidth * devicePixelRatio);
+c.height = Math.round(innerHeight * devicePixelRatio);
+const R = new Renderer(c);
+window.rendererName = R.rendererName;
+window.diskPeak = R.diskPeakRadius;
+window.shot = async (o) => {
+  const pos = sph(o.r, o.incl, o.az);
+  const basis = lookBasis(pos, { yaw: o.yaw || 0, pitch: o.pitch || 0, roll: o.roll || 0 });
+  const s = Object.assign({
+    fov: 40, diskTime: 0, tPeak: 5200, rIn: 6, rOut: 30, wipe: [0.5, 0.01, 0, 1],
+    diskGain: 1, starGain: 20, galaxyGain: 0.006, spin: 1, exposure: 0.5, bloomThreshold: 2.5,
+    bloomStrength: 0.06, teleSplit: [0.5, 0.01, 0, 0], teleSigmaPx: 40, fade: 1, frame: 0,
+    grainPx: devicePixelRatio, vignette: 0.25, look: [1.2, 1.25, 0],
+  }, o, basis);
+  const t0 = performance.now();
+  await R.render(s, { tileRows: o.tileRows ?? 128 });
+  return performance.now() - t0;
+};
+window.ready = true;
+</script>
+</body>
+</html>
