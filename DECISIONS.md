@@ -496,3 +496,22 @@ diagrams (paths 2.4–2.6 px, references 1.8 px); the ISCO legend swatch matches
    2.8 px rays.
 
 Also: the Doppler shot tilted up a further 0.7° for clear space above the arc.
+
+### Round 13 — remaining findings and what was done
+
+1. **The circling ray's head strobed** (38 px per frame, a round glow with no smear, so it stepped around the circle
+   as separate dots). → The ray now laps ≈ 1.9 times (b = √27 M (1 + 2.8 × 10⁻⁷), still within 0.0013 M of 3M,
+   under 0.1 px, and still leaving down-left inside the escaping ray) over 3.4 s, so the head moves 23 px per frame;
+   and the head is smeared along its own path over the half frame before each frame (a 180° shutter), so
+   consecutive heads overlap into one gliding track.
+2. **"Here, light itself can orbit." arrived ≈ 5 s early.** → It now lands a quarter of the way into the first lap
+   (40.0 s); only the headline runs over the dive and the black.
+3. **"And back to the real view." sat outside the type system.** → The return restates the real view's headline
+   ("One side is brighter") with "Back to the real view." on the standard caption row.
+4. **The dashed guide sat beside the ray's entry leg** (which runs just outside r = 3M on its first pass). → The
+   guide is drawn only over the part of the circle the ray has not yet covered, so the two are never side by side.
+5. **The two exit labels missed a shared baseline by 9 px.** → One baseline.
+
+Also: the gravity diagram raised 35 px off the disk's faint wing; the payoff seam's blend narrowed to ≈ 1.5 px so
+the sharp ring no longer bleeds across it. Kept: the lingering ember at 38.0 s — the burn-out completes at 38.4 s
+and the last warm streaks are the intended cooling.

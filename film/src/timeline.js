@@ -120,7 +120,7 @@ const TELE = [[90, 0.67], [95.0, 0.67], [97.8, 0.5], [104.4, 0.5], [105.6, 1.05]
 // the photon-sphere diagram interlude: the shot goes out to black completely (no second hole behind the
 // diagram): exposure falls in linear light (the tone curve's shoulder keeps the hottest gas longest, and the
 // whole shape stays intact), cooling in colour, with a final crush to true black
-const CRUSH = [[0, 0], [37.0, 0], [38.4, 1], [48.0, 1], [49.2, 0], [108, 0]];
+const CRUSH = [[0, 0], [37.0, 0], [38.4, 1], [48.2, 1], [49.4, 0], [108, 0]];
 
 // Brighter background sky on the dive: the static observer deep in the potential sees
 // starlight blueshifted (already in the shader); this extra gain keeps the lensed
@@ -151,7 +151,7 @@ export function effectsAt(t) {
   const fadeOut = (1 - 0.25 * smootherstep(104.6, 105.8, t)) * (1 - smootherstep(107.25, 107.85, t));
   return {
     wipe: [0, 0, 0, 1 - Math.min(Math.max(wipeX, 0), 1)],   // x, softness, split on/off, beaming amount
-    teleSplit: [teleX, 0.0025, smoothstep(94.2, 95.0, t) * (t < 105.8 ? 1 : 0), 0],
+    teleSplit: [teleX, 0.0008, smoothstep(94.2, 95.0, t) * (t < 105.8 ? 1 : 0), 0],
     // dimmed for the photon-sphere diagram; eased down while the no-Doppler disk (brighter, flatter) fills the frame
     dim: t > 60 && t < 76 ? 1 - 0.32 * Math.min(Math.max(wipeX, 0), 1) : 1,
     crush: Math.min(1, Math.max(0, monotone(CRUSH, t))),
@@ -175,9 +175,9 @@ export const CUES = [
   { t0: 17.0, t1: 21.0, kind: 'caption', text: 'You’re seeing the disk’s far side.', x: 1200, y: 214 },
   { t0: 21.2, t1: 28.8, kind: 'caption', text: 'Bent over the top, and under.', x: 1200, y: 214 },
 
-  { t0: 33.2, t1: 48.2, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
-  { t0: 34.4, t1: 42.4, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
-  { t0: 42.6, t1: 48.2, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
+  { t0: 33.2, t1: 48.4, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
+  { t0: 40.0, t1: 43.0, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
+  { t0: 43.2, t1: 48.4, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
 
   { t0: 49.4, t1: 59.2, kind: 'headline', text: 'The last stable orbit', x: 1200, y: 150 },
   { t0: 50.6, t1: 58.8, kind: 'caption', text: 'Inside 3 rₛ, matter plunges in.', x: 1200, y: 214 },
@@ -186,7 +186,9 @@ export const CUES = [
   { t0: 63.0, t1: 67.6, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
   { t0: 67.7, t1: 73.9, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 150, align: 'center' },
   { t0: 67.9, t1: 73.9, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
-  { t0: 74.1, t1: 77.0, kind: 'caption', text: 'And back to the real view.', x: 960, y: 190, align: 'center' },
+  // the return restates the real view's headline, with the caption on the standard row
+  { t0: 74.0, t1: 77.0, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
+  { t0: 74.2, t1: 77.0, kind: 'caption', text: 'Back to the real view.', x: 960, y: 214, align: 'center' },
 
   { t0: 81.3, t1: 86.8, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
   { t0: 81.5, t1: 86.8, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
@@ -219,7 +221,7 @@ export const LABELS = [
 // Side panels
 export const PANELS = [
   { id: 'rays', t0: 15.4, t1: 29.2 },
-  { id: 'photon', t0: 38.2, t1: 48.4 },
+  { id: 'photon', t0: 38.2, t1: 48.6 },
   { id: 'isco', t0: 49.2, t1: 59.4 },
 ];
 

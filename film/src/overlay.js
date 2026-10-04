@@ -121,13 +121,13 @@ export const PLUNGE = { st: 1.6, dur: 6.4 };
 
 // Top view for the photon sphere: parallel rays from the left at impact parameters near sqrt(27) M,
 // integrated in u(phi) (the Binet form, as in the shader): near the critical value the orbit is
-// exponentially sensitive, and a Cartesian integration loses the laps. At b = bc (1 + 5.6e-10) the ray
-// circles ≈ 2.9 times within 0.001 M of r = 3M, then leaves down-left, inside the escaping neighbour
-// (so the two never cross) and clear of the incoming rays.
+// exponentially sensitive, and a Cartesian integration loses the laps. At b = bc (1 + 2.8e-7) the ray
+// circles ≈ 1.9 times within 0.0013 M of r = 3M (under 0.1 px here), then leaves down-left, inside the
+// escaping neighbour (so the two never cross) and clear of the incoming rays.
 const PHOTON_GEO = (() => {
   const bc = Math.sqrt(27);
   const set = [
-    { b: bc * (1 + 5.6e-10), main: true },
+    { b: bc * (1 + 2.8e-7), main: true },
     { b: bc * 1.15, kind: 'escapes' }, { b: bc * 0.9, kind: 'falls' },   // one neighbour escapes, one falls in
   ];
   return set.map((s) => {
@@ -143,7 +143,7 @@ const PHOTON_GEO = (() => {
 
 // The circling ray's timing (s after the panel appears): its approach, then the lap at an even pace
 // while it is alone on screen, then its exit; the two neighbours branch off after the lap.
-export const PHOTON_T = { approach: [0.8, 1.6], lap: [1.6, 4.6], exit: [4.6, 5.3], branch: 4.4 };
+export const PHOTON_T = { approach: [0.6, 1.4], lap: [1.4, 4.8], exit: [4.8, 5.5], branch: 4.6 };
 const MAIN_IDX = (() => {
   const pts = PHOTON_GEO.find((r) => r.main).pts;
   const near = (p) => Math.hypot(p[0], p[1]) < 3.6;
@@ -501,7 +501,7 @@ export class Overlay {
     const ctx = this.ctx;
     if (p.id === 'rays') {
       // side view in the right-hand column (x 1330–1810), clear of the real disk's tail
-      const sc = 13.5, cx = 1400, cy = 400;
+      const sc = 13.5, cx = 1400, cy = 365;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
       const o = this.beginDiagram(cx + 6 * sc, cy, 470, 175, a);
       // the disk: a soft, heavier bar, distinct from the rays
@@ -542,9 +542,31 @@ export class Overlay {
       this.circle(o, cx, cy, 2 * sc, 'horizon');
       const T = PHOTON_T;
       const done = smoothstep(T.exit[1], T.exit[1] + 0.8, lt);
-      // the dashed reference guides the eye during the lap, then gives way: the ray's own trace,
-      // which rides r = 3M, is the single stroke that stays (two near-coincident circles read as misregistration)
-      if (done < 1) { o.setLineDash([4, 10]); o.lineWidth = 1.2; o.strokeStyle = rgba(COL.white, 0.3 * (1 - done)); this.circle(o, cx, cy, 3 * sc, 'photon sphere'); }
+      // the dashed reference shows where the sphere is only over the part of the circle the ray has not
+      // yet covered, so the two never sit side by side (the ray's entry leg runs just outside r = 3M)
+      {
+        const m = PHOTON_GEO.find((r) => r.main);
+        const n = Math.max(2, Math.floor(m.pts.length * mainProg(lt)));
+        let swept = 0, started = false;
+        for (let k = 1; k < n; k++) {
+          const [x0, y0] = m.pts[k - 1], [x1, y1] = m.pts[k];
+          if (!started && Math.hypot(x1, y1) < 3.6) started = true;
+          if (!started) continue;
+          let d = Math.atan2(y0, x0) - Math.atan2(y1, x1);   // clockwise travel, positive
+          if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+          swept += d;
+        }
+        const rem = 2 * Math.PI - swept - 0.25;
+        if (rem > 0 && done < 1) {
+          const [hx, hy] = m.pts[n - 1];
+          const phi0 = -Math.atan2(hy, hx) + 0.25;   // canvas angle just ahead of the head
+          o.setLineDash([4, 10]); o.lineWidth = 1.2; o.strokeStyle = rgba(COL.white, 0.3 * (1 - done));
+          o.beginPath(); o.arc(cx, cy, 3 * sc, phi0, phi0 + rem, false); o.stroke();
+          const pts = [];
+          for (let k = 0; k <= 48; k++) { const t = phi0 + (rem * k) / 48; pts.push([cx + 3 * sc * Math.cos(t), cy + 3 * sc * Math.sin(t)]); }
+          this.lines.push({ pts, kind: 'photon sphere', a: this.diagA });
+        }
+      }
       o.restore();
       PHOTON_GEO.forEach((ray, i) => {
         if (ray.main) {
@@ -568,10 +590,22 @@ export class Overlay {
               o.stroke(); o.restore();
             }
             if (prog < 1) {
+              // the head is smeared along its own path over the half frame before this one (a 180°
+              // shutter), so it glides instead of stepping
+              const nb = Math.max(1, Math.floor(ray.pts.length * mainProg(lt - 1 / 60)) - 1);
+              o.save();
+              o.lineCap = 'round'; o.lineJoin = 'round';
+              for (const [w, al] of [[16, 0.18], [9, 0.35], [4.5, 0.75]]) {
+                o.strokeStyle = rgba(COL.white, al); o.lineWidth = w;
+                o.beginPath();
+                for (let k = nb; k <= n - 1; k++) { const [X, Y] = map(ray.pts[k]); if (k === nb) o.moveTo(X, Y); else o.lineTo(X, Y); }
+                o.stroke();
+              }
+              o.restore();
               const [hx, hy] = map(ray.pts[n - 1]);
-              const g = o.createRadialGradient(hx, hy, 0, hx, hy, 18);
-              g.addColorStop(0, rgba(COL.white, 0.95)); g.addColorStop(1, rgba(COL.white, 0));
-              o.fillStyle = g; o.beginPath(); o.arc(hx, hy, 18, 0, Math.PI * 2); o.fill();
+              const g = o.createRadialGradient(hx, hy, 0, hx, hy, 14);
+              g.addColorStop(0, rgba(COL.white, 0.9)); g.addColorStop(1, rgba(COL.white, 0));
+              o.fillStyle = g; o.beginPath(); o.arc(hx, hy, 14, 0, Math.PI * 2); o.fill();
             }
           }
           return;
@@ -593,17 +627,18 @@ export class Overlay {
       const fa = a * smoothstep(T.branch + 0.6, T.branch + 1.3, lt);
       if (fpt && fa > 0) { const [fx, fy] = map(fpt); this.dlabel(ctx, 'falls in', fx, fy + 4, fx - 20, fy + 66, fa, 'right', COL.ember); }
       const R = (k) => PHOTON_GEO.find((r) => (k === 'main' ? r.main : r.kind === k));
+      const BOTTOM = cy + 362;   // the two exit labels share one baseline
       const tag = (ray, txt, dx, align, t0) => {
         const ta = a * smoothstep(t0, t0 + 0.8, lt);
         const pt = ray && ray.pts.find(([x, y]) => y < -5.0 && Math.abs(x) < 9);
-        if (pt && ta > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, txt, ex, ey, ex + dx, ey + 70, ta, align); }
+        if (pt && ta > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, txt, ex, ey, ex + dx, BOTTOM, ta, align); }
       };
       // the circling ray is named where it leaves the sphere (first point past 5.5 M after its laps)
       {
         const m = R('main');
         const ta = a * smoothstep(T.branch + 1.3, T.branch + 2.1, lt);
         const k = m.pts.findIndex(([x, y], i) => i > 200 && Math.hypot(x, y) > 5.5 && m.pts.slice(0, i).some(([px, py]) => Math.hypot(px, py) < 3.1));
-        if (k > 0 && ta > 0) { const [ex, ey] = map(m.pts[k]); this.dlabel(ctx, 'orbits, then leaves', ex, ey, ex - 40, ey + 90, ta, 'right'); }
+        if (k > 0 && ta > 0) { const [ex, ey] = map(m.pts[k]); this.dlabel(ctx, 'orbits, then leaves', ex, ey, ex - 40, BOTTOM, ta, 'right'); }
       }
       tag(R('escapes'), 'escapes', 40, 'left', T.branch + 2.0);
     } else if (p.id === 'isco') {
