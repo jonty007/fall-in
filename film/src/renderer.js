@@ -1,6 +1,6 @@
 // WebGL2 renderer: scene (geodesic ray tracing) -> bloom / telescope blur -> composite.
 import { sceneFrag, fullscreenVert } from './shaders/scene.js';
-import { downFrag, upFrag, blurFrag, compositeFrag } from './shaders/post.js';
+import { downFrag, upFrag, blurFrag, compositeFrag, overlayFrag } from './shaders/post.js';
 import { buildBlackbodyLUT, buildDiskProfile, BB_LUT, DISK_LUT } from './physics.js';
 
 function compile(gl, type, src) {
@@ -76,6 +76,8 @@ export class Renderer {
     this.up = program(gl, vs, upFrag);
     this.blur = program(gl, vs, blurFrag);
     this.comp = program(gl, vs, compositeFrag);
+    this.ovl = program(gl, vs, overlayFrag);
+    this.uiTex = gl.createTexture();
     this.vao = gl.createVertexArray();
 
     // LUT texture: row 0 blackbody, row 1 disk temperature profile
@@ -252,9 +254,30 @@ export class Renderer {
     });
   }
 
+  // composite the 2D text layer (premultiplied) over the graded image in the same canvas,
+  // so a screenshot can never pair a frame with a stale overlay
+  overlay(ui) {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.uiTex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ui);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    this.pass(this.ovl, null, (u) => this.bindTex(0, this.uiTex, u.uUi));
+    gl.disable(gl.BLEND);
+  }
+
   async render(s, opts = {}) {
     await this.renderScene(s, opts);
     this.post(s);
+    if (opts.ui) this.overlay(opts.ui);
     const gl = this.gl;
     gl.finish();
     const px = new Uint8Array(4);

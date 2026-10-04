@@ -398,7 +398,7 @@ export function renderScore({ log = console.log, buses = false } = {}) {
     sfx.addMono(b, s1, 0.5, 0.3); addSendMono(b, s1, 0.3);
   }
   // Doppler wipe: a pass-by that follows the divider across the screen
-  for (const [ta, tb, dir] of [[66.0, 68.2, 1], [71.4, 73.8, -1]]) {
+  for (const [ta, tb, dir] of [[66.2, 68.2, 1], [73.0, 75.0, -1]]) {
     const len = tb - ta + 0.8;
     const w = whoosh(len, dir > 0 ? 2400 : 2200, dir > 0 ? 500 : 480, { shape: 'pass', q: 2.0, seed: Math.round(ta) });
     const n = w.length;

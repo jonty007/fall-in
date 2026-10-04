@@ -54,8 +54,8 @@ window.fps = FPS;
 window.rendererName = renderer.rendererName;
 window.seek = async (t, opts = {}) => {
   const st = frameState(t);
-  await renderer.render(st.render, { tileRows: opts.tileRows ?? 135 });
   overlay.draw(t, st.cam);
+  await renderer.render(st.render, { tileRows: opts.tileRows ?? 135, ui: uiCanvas });
   // let the compositor pick up both canvases
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   return st.cam;

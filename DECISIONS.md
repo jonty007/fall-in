@@ -187,3 +187,14 @@ close-orbit headline no longer claims 1.7 rₛ before the camera is there ("Just
 from 81.4 s) and its text sits in the black of the shadow; title moved clear of the lower lensed arc; grain now
 reaches the blacks (black lifted 1.5/255, luminance-weighted grain floor); the pull-back after the silence
 gets two intermediate keys so the hole is never stranded in a corner; galaxy haze reduced, its stars denser.
+
+## Capture
+
+37. **Text layer composited inside the WebGL canvas.** A half-second motion sheet of the dive showed the
+    previous frame's caption on alternating frames: with two DOM canvases, headless Chromium can screenshot a
+    stale 2D-canvas commit while the GPU process is busy with a long SwiftShader draw. The overlay is still
+    drawn on its own 2D canvas (never blurred, never graded), but it is now uploaded as a premultiplied texture
+    and blended in the last WebGL pass, after grade and grain, so every screenshot pairs the image with the
+    overlay of the same `t`. The DOM overlay canvas is hidden.
+38. **Poster**: portrait 2000×3000 (`film/out/poster.jpg`, `film/scripts/poster.mjs`), rendered by the same
+    shader at 1200×1800 CSS px × 2 and Lanczos-scaled, with the opening question, title and credit.

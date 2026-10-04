@@ -179,3 +179,11 @@ void main() {
   fragColor = vec4(v, 1.0);
 }
 `;
+
+// text/diagram layer: composited last, untouched by grade, grain or blur
+export const overlayFrag = header + /* glsl */ `
+uniform sampler2D uUi;
+void main() {
+  fragColor = texture(uUi, vUv);   // premultiplied alpha
+}
+`;
