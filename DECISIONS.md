@@ -284,3 +284,37 @@ the Einstein ring stars now streak instead of strobing. The brightest stars get 
 "Doppler left out on purpose, per Thorne’s team."; ISCO readout "orbital speed 0.500 c / its clocks run 29% slow"
 (√(1 − 3M/r) at the ISCO, computed). The contact sheet's timestamps moved to a band under each tile (they had
 covered the bottom-left readouts, which the reviewer read as a "decode" glitch).
+
+### Round 4 — five worst findings and what was done
+
+1. **The Doppler with/without wipe had no labels and read as a glitch.** The reviewer asked for a parked split;
+   but a split through a centred hole would set the approaching side of one version beside the receding side
+   of the other, which shows a false asymmetry. → The whole frame now *morphs* between the two (67.2–69.2 s and
+   back at 73.6–75.6 s): the bright side calms and the dim side lifts, with the headline "How Interstellar
+   showed it" and the caption "Doppler left out, on purpose." over the no-Doppler view, and the Doppler view
+   introduced by "One side is brighter" with side readouts tied to each side by leader lines
+   ("approaching ≈ 4× brighter", "receding ≈ 20× dimmer": g⁴ for g = 1.41 and 0.47, whose ratio is the 81× in
+   the caption). Text appears only after the camera settles (62.6 s). "per Thorne’s team" dropped from the
+   screen (the reference stays in SOURCES.md).
+2. **A 15-word monospace payoff caption.** → Two captions of ≤ 8 words: "Our render, blurred to EHT resolution."
+   then "The real M87* (2019): brighter below too." The µas/mass line is gone from the screen. The halves are
+   named "sharp" / "EHT resolution" right under the ring, either side of the seam; the seam hairline was removed
+   (the Lanczos downscale gave it dark ringing). The payoff camera moved back (345–380 M → 410–450 M) so the
+   ring clears the captions.
+3. **Face-on disk texture like hair or fur.** → Filaments made broad, soft and smooth along the flow and cut to
+   about 40 % of their round-3 strength; the round "blob" knots elongated ≈ 3 : 1 along the orbit and weakened.
+4. **A dark halo on every glyph, fading in ahead of the letters.** → No glyph halo at all. Instead the composite
+   darkens the picture by 28 % under each text block (soft-edged, following the text's own fade) and hides the
+   stars there, so no star sits in a word.
+5. **Diagrams colliding with the render and the frame edge; faint rays.** → The gravity diagram was rebuilt to
+   fit x 1330–1810 (observer at 30 M, outside the drawn disk's rim as in the shot, so the under-the-hole images
+   exist; disk drawn to 18 M), ≥ 80 px clear of the real disk; the observer is a dot labelled "you"; rays that
+   loop round the hole are excluded; five rays, 2.6 px, full ember. Photon diagram: three rays (the critical one
+   at 3 px white, one that falls in, one that escapes, 2.4 px). The layout check now enforces title-safe
+   (x 96–1824, y 54–1026).
+
+Also from round 4: the ISCO ring is broken where its "3 rₛ" label sits on it (no doubt which circle it names);
+one ISCO readout line ("orbital speed 0.5 c"); the gravity readout removed (too much text per screen); close
+orbit text held 5 s; star motion blur at a 90° shutter with long streaks faded further (they read as rain or
+scratches); star colours mostly F/A/B; star gain +30 %; the black floor raised to ≈ 2.3/255 with more grain so
+the encode will not band; the gravity FOV 34° → 36° so the hot side sits a little further inside the frame.

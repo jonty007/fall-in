@@ -274,6 +274,14 @@ export class Renderer {
       });
       gl.uniform4fv(u['uScrim[0]'], rects);
       gl.uniform1fv(u['uScrimK[0]'], ks);
+      const trects = new Float32Array(48), tas = new Float32Array(12);
+      (s.textMasks || []).slice(0, 12).forEach((m, i) => {
+        const [x0, y0, x1, y1] = m.rect;
+        trects.set([x0 / 1920, 1 - y1 / 1080, x1 / 1920, 1 - y0 / 1080], i * 4);
+        tas[i] = m.a;
+      });
+      gl.uniform4fv(u['uText[0]'], trects);
+      gl.uniform1fv(u['uTextA[0]'], tas);
     });
   }
 

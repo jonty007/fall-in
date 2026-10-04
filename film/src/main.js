@@ -25,8 +25,9 @@ export function frameState(t) {
   const fx = effectsAt(t);
   const pos = sph(cam.r, cam.incl, cam.az);
   const basis = lookBasis(pos, { yaw: cam.yaw, pitch: cam.pitch, roll: cam.roll });
-  // the camera's rotation about the hole during a 180-degree shutter (for the stars' motion blur)
-  const h = 0.25 / FPS;
+  // the camera's rotation about the hole while the shutter is open (for the stars' motion blur;
+  // a 90-degree shutter: long enough to stop lensed stars strobing, short enough not to read as rain)
+  const h = 0.125 / FPS;
   const pa = (() => { const c = cameraAt(t - h); return sph(c.r, c.incl, c.az); })();
   const pb = (() => { const c = cameraAt(t + h); return sph(c.r, c.incl, c.az); })();
   const cr = [pa[1] * pb[2] - pa[2] * pb[1], pa[2] * pb[0] - pa[0] * pb[2], pa[0] * pb[1] - pa[1] * pb[0]];
@@ -46,7 +47,7 @@ export function frameState(t) {
       diskTime: fx.diskTime,
       tPeak: 4500, rIn: 6, rOut: 30,
       wipe: fx.wipe,
-      diskGain: 1, starGain: fx.starBoost, galaxyGain: 0.00035 * Math.pow(fx.starBoost, 0.7), spin: 1, omega,
+      diskGain: 1, starGain: 1.3 * fx.starBoost, galaxyGain: 0.00035 * Math.pow(fx.starBoost, 0.7), spin: 1, omega,
       exposure: cam.exposure * fx.dim * EV,
       bloomThreshold: 2.4, bloomStrength: 0.12,
       teleSplit: fx.teleSplit, teleSigmaPx,
@@ -70,7 +71,7 @@ const uiOnly = query.has('uionly');   // text and diagrams only, over black, for
 if (uiOnly) uiCanvas.style.display = 'block';
 window.seek = async (t, opts = {}) => {
   const st = frameState(t);
-  if (!noUi) overlay.draw(t, st.cam);
+  if (!noUi) { overlay.draw(t, st.cam); st.render.textMasks = overlay.textMasks(); }
   window.overlayIssues = overlay.issues;
   if (!uiOnly) await renderer.render(st.render, { tileRows: opts.tileRows ?? 135, ui: noUi ? null : uiCanvas });
   // let the compositor pick up both canvases

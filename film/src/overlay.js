@@ -75,21 +75,23 @@ function traceCartesian(x, y, dx, dy, { maxLen = 200, stop }) {
   return { pts, end: 'out' };
 }
 
-// Side view for "gravity bends light": rays from the camera (right, 8 deg above
-// the disk plane) traced back until they meet the disk. Drawn as light flowing
-// from the disk to the camera.
+// Side view for "gravity bends light": rays from an observer (right, 5 deg above the disk
+// plane, outside the disk's rim as in the shot, but nearer so the whole picture fits the
+// column; the disk drawn to 18 M) traced back until they meet the disk. Drawn as light
+// flowing from the disk to the observer.
+const DISK_OUT = 18;
 const RAYS_GEO = (() => {
-  const camR = 44, camEl = (5 * Math.PI) / 180;
+  const camR = 30, camEl = (5 * Math.PI) / 180;
   const cx = camR * Math.cos(camEl), cy = camR * Math.sin(camEl);
   const toHole = Math.atan2(-cy, -cx);
   const shoot = (o) => {
     const a = toHole + o;
     return traceCartesian(cx, cy, Math.cos(a), Math.sin(a), {
-      maxLen: 140,
+      maxLen: 120,
       stop: (x0, y0, x1, y1) => {
         if (y0 * y1 <= 0) {
           const xs = x0 + (x1 - x0) * (y0 / (y0 - y1));
-          if (Math.abs(xs) >= 6 && Math.abs(xs) <= 30) return xs < 0 ? (y0 < 0 ? 'under' : 'far') : 'near';
+          if (Math.abs(xs) >= 6 && Math.abs(xs) <= DISK_OUT) return xs < 0 ? (y0 < 0 ? 'under' : 'far') : 'near';
         }
         return null;
       },
@@ -98,17 +100,18 @@ const RAYS_GEO = (() => {
   const out = [];
   // scan the fan of directions; keep a few rays of each kind
   const found = { far: [], under: [], near: [] };
-  for (let o = -0.3; o <= 0.3; o += 0.0025) {
+  for (let o = -0.6; o <= 0.6; o += 0.002) {
     const r = shoot(o);
     if (found[r.end]) found[r.end].push({ o, r });
   }
   const pick = (arr, n) => (arr.length <= n ? arr : Array.from({ length: n }, (_, i) => arr[Math.round((i * (arr.length - 1)) / (n - 1))]));
   const hitX = ({ r }) => Math.abs(r.pts[r.pts.length - 1][0]);
-  found.under = found.under.filter((x) => hitX(x) >= 13 && hitX(x) <= 25);
-  // start times (s after the panel appears); each ray takes RAY_DRAW s to reach the camera
-  pick(found.near, 3).forEach(({ r }, j) => out.push({ pts: r.pts.slice().reverse(), kind: 'near', st: 0.6 + j * 0.25 }));
-  pick(found.far, 4).forEach(({ r }, j) => out.push({ pts: r.pts.slice().reverse(), kind: 'far', st: 1.6 + j * 0.5 }));
-  pick(found.under, 3).forEach(({ r }, j) => out.push({ pts: r.pts.slice().reverse(), kind: 'under', st: 5.0 + j * 0.45 }));
+  found.far = found.far.filter((x) => hitX(x) >= 9 && hitX(x) <= 17);
+  const rMin = ({ r }) => Math.min(...r.pts.map(([x, y]) => Math.hypot(x, y)));
+  found.under = found.under.filter((x) => hitX(x) >= 9 && hitX(x) <= 17 && rMin(x) > 4.5);   // no loops round the hole
+  // start times (s after the panel appears); each ray takes RAY_DRAW s to reach the observer
+  pick(found.far, 3).forEach(({ r }, j) => out.push({ pts: r.pts.slice().reverse(), kind: 'far', st: 0.8 + j * 0.6 }));
+  pick(found.under, 2).forEach(({ r }, j) => out.push({ pts: r.pts.slice().reverse(), kind: 'under', st: 5.0 + j * 0.6 }));
   return { rays: out, cam: [cx, cy] };
 })();
 
@@ -122,7 +125,7 @@ const PHOTON_GEO = (() => {
   const bc = Math.sqrt(27);
   const set = [
     { b: bc * (1 + 2e-6), main: true },
-    { b: bc * 1.06 }, { b: bc * 1.22 }, { b: bc * 0.985 }, { b: bc * 0.9 },
+    { b: bc * 1.06 }, { b: bc * 0.985 },   // one neighbour escapes, one falls in
   ];
   return set.map((s) => {
     const r = traceCartesian(-60, s.b, 1, 0, { maxLen: 260, stop: (x0, y0, x1, y1) => (x1 < -60 || x1 > 60 || Math.abs(y1) > 60 ? 'out' : null) });
@@ -194,6 +197,18 @@ export class Overlay {
       if (a <= 0) continue;
       const lines = r.lines(t, cam, PHYS);
       lines.forEach((line, i) => this.text(line, 'mono', r.x, r.y + i * 46, a, r.align));
+      if (r.leader) {
+        // a 1 px leader from under the block to the feature it describes
+        const b0 = this.textBox(lines[lines.length - 1], 'mono', r.x, r.y + (lines.length - 1) * 46, r.align);
+        const sx = r.align === 'right' ? b0.x1 - 40 : b0.x0 + 40, sy = b0.y1 + 10;
+        const [ax, ay] = r.leader;
+        ctx.save();
+        ctx.globalAlpha = a * 0.75;
+        ctx.strokeStyle = COL.white; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ax, ay); ctx.stroke();
+        ctx.restore();
+        this.lines.push({ pts: [[sx, sy], [ax, ay]], kind: 'readout leader', own: lines[lines.length - 1], a });
+      }
     }
     for (const c of CUES) {
       const a = this.env(t, c.t0, c.t1, c.fade ?? 0.7);
@@ -203,6 +218,12 @@ export class Overlay {
       this.text(str, c.kind, c.x, c.y + rise, a, c.align);
     }
     this.issues = this.check(t);
+  }
+
+  // text blocks for the composite (design px, padded): the picture is darkened softly under each
+  // and stars are hidden there, both following the text's own fade
+  textMasks() {
+    return this.boxes.filter((b) => b.a > 0.01).map((b) => ({ rect: [b.x0 - 18, b.y0 - 14, b.x1 + 18, b.y1 + 12], a: b.a }));
   }
 
   env(t, t0, t1, fade) {
@@ -239,7 +260,7 @@ export class Overlay {
     }
     for (let i = 0; i < boxes.length; i++) {
       const a = boxes[i];
-      if (a.x0 < 30 || a.x1 > 1890 || a.y0 < 30 || a.y1 > 1050) out.push(`t=${t.toFixed(2)} "${a.str}" outside the safe area`);
+      if (a.x0 < 96 || a.x1 > 1824 || a.y0 < 54 || a.y1 > 1026) out.push(`t=${t.toFixed(2)} "${a.str}" outside title-safe`);
       for (let j = i + 1; j < boxes.length; j++) {
         const b = boxes[j];
         if (a.x0 < b.x1 + 4 && b.x0 < a.x1 + 4 && a.y0 < b.y1 + 4 && b.y0 < a.y1 + 4) out.push(`t=${t.toFixed(2)} "${a.str}" overlaps "${b.str}"`);
@@ -310,13 +331,8 @@ export class Overlay {
     this.boxes.push({ ...box, str, a: alpha });
     ctx.save();
     ctx.textAlign = 'left';
-    // legibility: a soft dark halo behind the glyphs, then the crisp glyphs on top
-    ctx.globalAlpha = alpha * 0.85;
-    ctx.shadowColor = '#000';
-    ctx.shadowBlur = (kind === 'title' ? 44 : 22) * this.s;
-    ctx.fillStyle = '#000';
-    this.drawRuns(ctx, str, f, box.x0, y, '#000');
-    ctx.shadowBlur = 0;
+    // no glyph halo: legibility comes from placement and from the composite, which darkens the
+    // picture softly under every text block (and hides stars there) with the text's own fade
     ctx.globalAlpha = alpha * f.alpha;
     ctx.fillStyle = color;
     this.drawRuns(ctx, str, f, box.x0, y, color);
@@ -390,9 +406,15 @@ export class Overlay {
       this.circle(ctx, cx, cy, 3 * scale, 'photon sphere');
     }
     if (isco) {
+      // dotted, and broken on the left where its label "3 rₛ" sits on the line itself
       ctx.setLineDash([3, 7]);
-      ctx.strokeStyle = rgba(COL.white, 0.75);
-      this.circle(ctx, cx, cy, 6 * scale, 'ISCO ring');
+      ctx.strokeStyle = rgba(COL.white, 0.8);
+      // (the gap is at the lower right, 60 deg below the horizontal, where the spiral is furthest inside)
+      const r = 6 * scale, gap = 0.36, at = Math.PI / 3;
+      ctx.beginPath(); ctx.arc(cx, cy, r, at + gap, at - gap + 2 * Math.PI); ctx.stroke();
+      const pts = [];
+      for (let k = 0; k <= 80; k++) { const t = at + gap + (k / 80) * (2 * Math.PI - 2 * gap); pts.push([cx + r * Math.cos(t), cy + r * Math.sin(t)]); }
+      this.lines.push({ pts, kind: 'ISCO ring', a: this.diagA });
     }
     ctx.restore();
   }
@@ -433,15 +455,15 @@ export class Overlay {
   panel(p, lt, a) {
     const ctx = this.ctx;
     if (p.id === 'rays') {
-      // side view in the right-hand column; the camera is off the right edge
-      const sc = 13, cx = 1617, cy = 470;   // above the real disk's plane (y ≈ 575), so the two never line up
+      // side view in the right-hand column (x 1330–1810), clear of the real disk's tail
+      const sc = 10, cx = 1510, cy = 470;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
-      const o = this.beginDiagram(1585, cy, 350, 240, a);
-      // the disk: a soft, heavier bar, distinct from the 2 px rays
-      for (const [x0, x1] of [[-27, -6], [6, 27]]) {
+      const o = this.beginDiagram(1570, cy, 330, 210, a);
+      // the disk: a soft, heavier bar, distinct from the rays
+      for (const [x0, x1] of [[-DISK_OUT, -6], [6, DISK_OUT]]) {
         const g = o.createLinearGradient(cx + x0 * sc, 0, cx + x1 * sc, 0);
         const inner = x0 < 0 ? 1 : 0;
-        g.addColorStop(inner ? 1 : 0, rgba(COL.white, 0.95)); g.addColorStop(0.5, rgba(COL.ember, 0.8)); g.addColorStop(inner ? 0 : 1, rgba(COL.ember, 0));
+        g.addColorStop(inner ? 1 : 0, rgba(COL.white, 0.95)); g.addColorStop(0.55, rgba(COL.ember, 0.85)); g.addColorStop(inner ? 0 : 1, rgba(COL.ember, 0.15));
         o.fillStyle = g;
         o.fillRect(cx + x0 * sc, cy - 3, (x1 - x0) * sc, 6);
         this.lines.push({ pts: [[cx + x0 * sc, cy], [cx + x1 * sc, cy]], kind: 'disk bar', a });
@@ -450,20 +472,20 @@ export class Overlay {
       for (const ray of RAYS_GEO.rays) {
         const prog = smootherstep(ray.st, ray.st + RAY_DRAW, lt);
         if (prog <= 0) continue;
-        const hot = ray.kind !== 'near';
-        this.path(o, ray.pts, map, prog, { color: rgba(hot ? COL.ember : COL.white, hot ? 0.95 : 0.35), width: hot ? 2.0 : 1.2 }, true, `${ray.kind} ray`);
+        this.path(o, ray.pts, map, prog, { color: rgba(COL.ember, 0.95), width: 2.6 }, true, `${ray.kind} ray`);
         // emission point on the disk
         const [ex, ey] = map(ray.pts[0]);
-        o.fillStyle = rgba(COL.white, 0.9 * Math.min(1, prog * 4));
-        o.beginPath(); o.arc(ex, ey, 3, 0, Math.PI * 2); o.fill();
+        o.fillStyle = rgba(COL.white, 0.95 * Math.min(1, prog * 4));
+        o.beginPath(); o.arc(ex, ey, 3.2, 0, Math.PI * 2); o.fill();
       }
+      // the observer
+      const [ox, oy] = map(RAYS_GEO.cam);
+      o.fillStyle = rgba(COL.white, 1);
+      o.beginPath(); o.arc(ox, oy, 5, 0, Math.PI * 2); o.fill();
       this.endDiagram();
       const la = a * smoothstep(3.5, 4.5, lt);
-      // "to you": above the bundle where it leaves the frame toward the camera
-      const top = RAYS_GEO.rays.reduce((m, r) => Math.max(m, ...r.pts.filter(([x]) => x > 16 && x < 18).map(([, y]) => y)), 0);
-      const [tx, ty] = map([17, top + 0.6]);
-      this.dlabel(ctx, 'to you', tx, ty, 1860, ty - 54, la, 'right');
-      this.dlabel(ctx, 'far side of the disk', cx - 26.6 * sc, cy + 5, 1262, cy + 172, la, 'left');
+      this.text('you', 'label', ox + 12, oy - 28, la, 'right');
+      this.dlabel(ctx, 'far side of the disk', cx - (DISK_OUT - 0.4) * sc, cy + 5, cx - DISK_OUT * sc, cy + 122, la, 'left');
     } else if (p.id === 'photon') {
       // full-frame interlude over black: top view of light passing the hole
       const sc = 44, cx = 960, cy = 540;
@@ -471,10 +493,10 @@ export class Overlay {
       const o = this.beginDiagram(cx, cy, 600, 290, a);
       this.hole(o, cx, cy, sc, { photonSphere: true });
       PHOTON_GEO.forEach((ray, i) => {
-        const st = ray.main ? PHOTON_MAIN.st : 0.4 + i * 0.25;
+        const st = ray.main ? PHOTON_MAIN.st : 0.4 + i * 0.35;
         const prog = smootherstep(st, st + (ray.main ? PHOTON_MAIN.dur : 3.0), lt);
         if (prog <= 0) return;
-        this.path(o, ray.pts, map, prog, ray.main ? { color: rgba(COL.white, 0.95), width: 2.4 } : { color: rgba(COL.ember, 0.6), width: 1.5 }, true, ray.main ? 'main ray' : 'neighbour ray');
+        this.path(o, ray.pts, map, prog, ray.main ? { color: rgba(COL.white, 1), width: 3.0 } : { color: rgba(COL.ember, 0.9), width: 2.4 }, true, ray.main ? 'main ray' : 'neighbour ray');
       });
       this.endDiagram();
       const la = a * smoothstep(1.2, 2.2, lt);
@@ -497,25 +519,16 @@ export class Overlay {
       const la = a * smoothstep(2.0, 3.0, lt);
       this.text('stays in orbit', 'label', cx, cy - ISCO_GEO.stableR * sc - 22, la, 'center');
       this.text('spirals in', 'label', cx, cy + ISCO_GEO.stableR * sc + 52, la * smoothstep(PLUNGE.st + 2, PLUNGE.st + 3, lt), 'center', COL.ember);
-      this.text('3 rₛ', 'label', cx - 6 * sc - 12, cy + 12, la, 'right');
+      this.text('3 rₛ', 'label', cx + 6 * sc * Math.cos(Math.PI / 3), cy + 6 * sc * Math.sin(Math.PI / 3) + 12, la, 'center');
     }
   }
 
   label(kind, t, a) {
     const ctx = this.ctx;
     if (kind === 'split') {
-      // the payoff ends side by side; a still hairline marks the seam
-      const x = 960;
-      ctx.save();
-      ctx.globalAlpha = a * 0.5;
-      const g = ctx.createLinearGradient(0, 280, 0, 900);
-      g.addColorStop(0, rgba(COL.white, 0)); g.addColorStop(0.2, rgba(COL.white, 1)); g.addColorStop(0.8, rgba(COL.white, 1)); g.addColorStop(1, rgba(COL.white, 0));
-      ctx.fillStyle = g;
-      ctx.fillRect(x - 0.75, 280, 1.5, 620);
-      ctx.restore();
-      this.lines.push({ pts: [[x, 330], [x, 850]], kind: 'split line', a });
-      this.text('sharp', 'label', 470, 575, a, 'right');
-      this.text('EHT resolution', 'label', 1450, 575, a, 'left');
+      // the payoff ends side by side; each half is named just under the ring, either side of the seam
+      this.text('sharp', 'label', 936, 905, a, 'right');
+      this.text('EHT resolution', 'label', 984, 905, a, 'left');
     }
   }
 }

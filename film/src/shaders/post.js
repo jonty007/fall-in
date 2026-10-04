@@ -105,6 +105,8 @@ uniform float uGrainPx;      // device pixels per output pixel (grain cell size)
 uniform float uVignette;
 uniform vec4  uScrim[3];    // soft darkening behind text: rect in uv (x0, y0, x1, y1)
 uniform float uScrimK[3];
+uniform vec4  uText[12];    // text blocks (uv rects): picture darkened a little, stars hidden
+uniform float uTextA[12];
 uniform vec3  uLook;        // x: AgX look power, y: mid-tone saturation boost, z: 1 = ACES (Hill fit) instead of AgX
 
 // AgX (Troy Sobotka), polynomial sigmoid fit by Benjamin Wrensch
@@ -169,7 +171,18 @@ void main() {
   vec3 thinRaw = texture(uThinRaw, vUv).rgb;
   vec3 diskC = max(diskRaw - thinRaw, 0.0) + thinSoft;
   vec3 skyC = max(texture(uScene, vUv).rgb - (diskRaw - thinRaw), 0.0);
-  vec3 col = compressHi(diskC * uExposure) + skyC * uExposure;
+  // under each text block: the disk is darkened a little and the stars are hidden, so no star
+  // ever sits inside a word, and nothing needs a halo around the glyphs
+  float tm = 0.0;
+  for (int i = 0; i < 12; i++) {
+    if (uTextA[i] <= 0.0) continue;
+    vec4 R = uText[i];
+    vec2 c = 0.5 * (R.xy + R.zw), hs = 0.5 * (R.zw - R.xy);
+    vec2 dd = (abs(vUv - c) - hs) * vec2(uRes.x / uRes.y, 1.0);
+    float dist = length(max(dd, 0.0)) + min(max(dd.x, dd.y), 0.0);
+    tm = max(tm, uTextA[i] * (1.0 - smoothstep(-0.012, 0.03, dist)));
+  }
+  vec3 col = compressHi(diskC * uExposure) * (1.0 - 0.28 * tm) + skyC * uExposure * (1.0 - tm);
   float tele = 0.0;
   if (uTeleSplit.z > 0.0) {
     tele = smoothstep(uTeleSplit.x - uTeleSplit.y, uTeleSplit.x + uTeleSplit.y, vUv.x) * uTeleSplit.z;
@@ -201,7 +214,7 @@ void main() {
   float warm = smoothstep(0.0, 0.08, v.r - v.b);
   v = clamp(lumaG + (v - lumaG) * (1.0 + uLook.y * satW * warm), 0.0, 1.0);
   // a filmic black: lifted by ~1.5/255 so grain lives in the shadows too
-  v = v * (1.0 - 0.006) * uFade + 0.006 * min(uFade * 3.0, 1.0);
+  v = v * (1.0 - 0.009) * uFade + 0.009 * min(uFade * 3.0, 1.0);
 
   // grain: luminance-weighted, one value per output pixel so it survives the 2x downscale,
   // plus +-1 LSB triangular dither everywhere against banding
@@ -210,7 +223,7 @@ void main() {
   float n1 = rnd(uvec3(cell, fr * 3u + 1u)), n2 = rnd(uvec3(cell, fr * 3u + 2u));
   float n3 = rnd(uvec3(uvec2(gl_FragCoord.xy), fr * 3u + 7u)), n4 = rnd(uvec3(uvec2(gl_FragCoord.xy) + 911u, fr * 3u + 5u));
   float luma = dot(v, vec3(0.2126, 0.7152, 0.0722));
-  float amp = (0.008 + 0.02 * smoothstep(0.02, 0.3, luma) * (1.0 - 0.6 * smoothstep(0.55, 1.0, luma))) * uFade;
+  float amp = (0.012 + 0.02 * smoothstep(0.02, 0.3, luma) * (1.0 - 0.6 * smoothstep(0.55, 1.0, luma))) * uFade;
   float grain = (n1 + n2 - 1.0) * amp;
   float dither = (n3 + n4 - 1.0) / 255.0;
   v = v + grain * (0.6 + 0.4 * v) + dither;

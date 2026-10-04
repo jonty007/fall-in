@@ -139,7 +139,8 @@ vec2 diskLayer(float r, float ang, float lr, float age, float seed, float lod) {
   vec3 q = vec3(cs2 * 9.0, lr * 22.0 + seed * 5.3 + big * 2.0);
   float wisp = snoise(q) * (1.0 - smoothstep(0.2, 0.9, lod * 2.4));
   // sparse hot knots riding the flow
-  float knot = smoothstep(0.45, 0.85, snoise(p1 * 2.3 + vec3(9.1, 2.7, seed))) * (1.0 - smoothstep(0.2, 0.9, lod * 1.5));
+  // (elongated ~3:1 along the orbit, so they read as hot streaks in the flow, not round blobs)
+  float knot = smoothstep(0.5, 0.88, snoise(vec3(cs * 5.0, lr * 15.0 + seed * 1.7 + big * 0.8) + vec3(9.1, 2.7, seed))) * (1.0 - smoothstep(0.2, 0.9, lod * 1.5));
   // dark filaments: ridges of a warped mid-scale field, faded out before they alias
   // (long and thin along the flow, and sparse: only the strongest ridges, gated by the clumps)
   // (broad, soft and smooth along the flow: they should read as cooler gas, not as hairs)
@@ -147,7 +148,7 @@ vec2 diskLayer(float r, float ang, float lr, float age, float seed, float lod) {
   float ridge = 1.0 - abs(fbm3(pl, lod * 0.8) * 1.6);
   float lane = smoothstep(0.78, 0.97, ridge) * smoothstep(-0.1, 0.35, snoise(p1 * 1.3 + vec3(3.3, seed, 1.9)))
              * (1.0 - smoothstep(0.15, 0.6, lod * 1.6));
-  return vec2(big * 0.9 + mid * 0.4 + streak * 0.17 + wisp * 0.07 + knot * 0.7, lane);
+  return vec2(big * 0.9 + mid * 0.35 + streak * 0.17 + wisp * 0.05 + knot * 0.45, lane);
 }
 
 // returns rgb emission (already * alpha) and alpha
@@ -182,10 +183,10 @@ vec4 diskSample(vec3 P, float r, float cosInc, float g, float lod) {
   float outer = 1.0 - smoothstep(uRout * 0.5, uRout, r);
   outer *= outer;
   // optically thick body (thin disks are), more translucent toward the outer edge
-  float dens = inner * clamp(0.9 + 1.1 * n, 0.12, 1.8) * (1.0 - 0.45 * lane);
+  float dens = inner * clamp(0.9 + 1.1 * n, 0.12, 1.8) * (1.0 - 0.25 * lane);
   float tau = 4.0 * dens / max(abs(cosInc), 0.08);
   float alpha = (1.0 - exp(-tau)) * outer;
-  float T = uTpeak * diskProfile(r) * (0.9 + 0.26 * clamp(n, -1.0, 1.0)) * (1.0 - 0.12 * lane) * g;
+  float T = uTpeak * diskProfile(r) * (0.9 + 0.26 * clamp(n, -1.0, 1.0)) * (1.0 - 0.06 * lane) * g;
   vec3 em = blackbody(T) * uDiskGain;
   return vec4(em * alpha, alpha);
 }
@@ -265,7 +266,7 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   float flux = pow(10.0, -0.4 * m);
   // colour temperature: mostly K/G/F, some A/B
   float t = rnd2.y;
-  float T = t < 0.4 ? mix(3800.0, 5600.0, t / 0.4) : (t < 0.75 ? mix(5600.0, 9000.0, (t - 0.4) / 0.35) : mix(9000.0, 26000.0, pow(max((t - 0.75) / 0.25, 0.0), 1.4)));
+  float T = t < 0.15 ? mix(4400.0, 5800.0, t / 0.15) : (t < 0.65 ? mix(5800.0, 9500.0, (t - 0.15) / 0.5) : mix(9500.0, 26000.0, pow(max((t - 0.65) / 0.35, 0.0), 1.4)));
   vec3 bbBase = blackbody(T);
   vec3 bb = blackbody(T * gsky);
   float lum = dot(bbBase, vec3(0.2126, 0.7152, 0.0722));
@@ -273,7 +274,8 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, 0.85);
   float r2 = dot(pp, pp);
   const float SIG = 1.25;                       // point-spread in render pixels (~0.6 px after the 2x downscale)
-  float core = exp(-0.5 * r2 / (SIG * SIG)) / (2.0 * PI * SIG * SIG) / (1.0 + ml / (2.5066 * SIG));
+  // (streaks much longer than the star are faded further: fast lensed images read as scratches)
+  float core = exp(-0.5 * r2 / (SIG * SIG)) / (2.0 * PI * SIG * SIG) / (1.0 + ml / (2.5066 * SIG)) / (1.0 + ml * ml / 400.0);
   // the few brightest stars get a soft glow (lens scatter), so the field has a hierarchy
   float halo = exp(-0.5 * r2 / 36.0) / (2.0 * PI * 36.0) * 0.16 * smoothstep(2.0, -1.0, m) / (1.0 + ml / 15.0);
   float area = max(L.area / (L.scale * L.scale), 1e-16);   // solid angle per render pixel after lensing
