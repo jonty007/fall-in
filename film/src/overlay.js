@@ -175,7 +175,7 @@ const ISCO_GEO = (() => {
 // Rich text: subscripts (ₛ), superscripts (¹²³⁴) and a drawn "≈", because none of the
 // three typefaces carries those glyphs and a system fallback would not match.
 const SUB = { 'ₛ': 's' }, SUP = { '¹': '1', '²': '2', '³': '3', '⁴': '4' };
-const KERN = { 'FALL IN': { IN: -0.035 } };   // em; letter-spacing is included by measureText
+const KERN = { 'FALL IN': { IN: -0.035, LL: -0.012 } };   // em; letter-spacing is included by measureText
 function runs(str) {
   const out = [];
   let buf = '', it = false;
@@ -395,9 +395,9 @@ export class Overlay {
     const dx = ax - nx, dy = ay - ny, d = Math.hypot(dx, dy);
     if (d > 20) {
       const ex = nx + (dx / d) * 8, ey = ny + (dy / d) * 8;
-      const sx = ax - (dx / d) * 4, sy = ay - (dy / d) * 4;   // and 4 px short of the feature
+      const sx = ax, sy = ay;   // touching the feature it names
       ctx.save();
-      ctx.globalAlpha = a * 0.75;
+      ctx.globalAlpha = a * 0.5;
       ctx.strokeStyle = COL.white; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
       ctx.restore();
@@ -531,7 +531,7 @@ export class Overlay {
       this.endDiagram();
       const la = a * smoothstep(3.5, 4.5, lt);
       this.text('you', 'label', ox + 12, oy - 28, la, 'right');
-      this.dlabel(ctx, 'where that light starts', cx - (DISK_OUT - 0.4) * sc, cy + 5, cx - DISK_OUT * sc, cy + 126, la, 'left');
+      this.dlabel(ctx, 'where that light starts', cx - 16.4 * sc, cy + 4, 1200, cy + 126, la, 'left');
     } else if (p.id === 'photon') {
       // full-frame interlude over black: top view of light passing the hole
       const sc = 58, cx = 960, cy = 600;
@@ -629,20 +629,21 @@ export class Overlay {
       const fa = a * smoothstep(T.branch + 0.6, T.branch + 1.3, lt);
       if (fpt && fa > 0) { const [fx, fy] = map(fpt); this.dlabel(ctx, 'falls in', fx, fy + 4, fx - 20, fy + 66, fa, 'right', COL.ember); }
       const R = (k) => PHOTON_GEO.find((r) => (k === 'main' ? r.main : r.kind === k));
-      const BOTTOM = cy + 362;   // the two exit labels share one baseline
+      const BOTTOM = cy + 5.2 * sc + 12;   // the two exit labels share one baseline, level with where they are named
       const tag = (ray, txt, dx, align, t0) => {
         const ta = a * smoothstep(t0, t0 + 0.8, lt);
-        const pt = ray && ray.pts.find(([x, y]) => y < -5.0 && Math.abs(x) < 9);
-        if (pt && ta > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, txt, ex, ey, ex + dx, BOTTOM, ta, align); }
+        const pt = ray && ray.pts.find(([x, y]) => y < -5.2 && Math.abs(x) < 9);
+        if (pt && ta > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, txt, ex + Math.sign(dx) * 2, ey, ex + dx, BOTTOM, ta, align); }
       };
       // the circling ray is named where it leaves the sphere (first point past 5.5 M after its laps)
       {
         const m = R('main');
         const ta = a * smoothstep(T.branch + 1.3, T.branch + 2.1, lt);
-        const k = m.pts.findIndex(([x, y], i) => i > 200 && Math.hypot(x, y) > 5.5 && m.pts.slice(0, i).some(([px, py]) => Math.hypot(px, py) < 3.1));
-        if (k > 0 && ta > 0) { const [ex, ey] = map(m.pts[k]); this.dlabel(ctx, 'orbits, then leaves', ex, ey, ex - 40, BOTTOM, ta, 'right'); }
+        const lapped = m.pts.findIndex(([x, y]) => Math.hypot(x, y) < 3.1);
+        const k = m.pts.findIndex(([x, y], i) => i > lapped && y < -5.2 && Math.hypot(x, y) > 5.2);
+        if (k > 0 && ta > 0) { const [ex, ey] = map(m.pts[k]); this.dlabel(ctx, 'orbits, then leaves', ex - 2, ey, ex - 70, BOTTOM, ta, 'right'); }
       }
-      tag(R('escapes'), 'escapes', 40, 'left', T.branch + 2.0);
+      tag(R('escapes'), 'escapes', 70, 'left', T.branch + 2.0);
     } else if (p.id === 'isco') {
       // right-hand column, over the dimmer receding side of the disk
       const sc = 26, cx = 1530, cy = 566;
@@ -673,7 +674,7 @@ export class Overlay {
       const la = a * smoothstep(2.0, 3.0, lt);
       // one callout style for the two paths: a legend under the diagram (leaders to the inner spiral
       // would have to cross the rings); the 3 rₛ reference ring carries its own label on the line
-      const lx = cx - 150, ly = cy + ISCO_GEO.stableR * sc + 50;
+      const lx = 1200, ly = cy + ISCO_GEO.stableR * sc + 50;
       const pa = la * smoothstep(PLUNGE.st + 2, PLUNGE.st + 3, lt);
       ctx.save();
       ctx.lineCap = 'round';
@@ -707,7 +708,7 @@ export class Overlay {
       for (const [w, al] of [[3.0, 0.25], [1.6, 0.6], [0.8, 1.0]]) { ctx.globalAlpha = a * al; ctx.fillStyle = g; ctx.fillRect(x - w / 2, 280, w, 540); }
       ctx.restore();
       this.lines.push({ pts: [[x, 300], [x, 800]], kind: 'split line', a });
-      const na = a * smoothstep(97.8, 98.5, t);
+      const na = a * smoothstep(96.0, 96.7, t);
       this.text('sharp', 'label', 924, 880, na, 'right');
       this.text('EHT resolution', 'label', 996, 880, na, 'left');
     }

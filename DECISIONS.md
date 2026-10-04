@@ -529,3 +529,21 @@ and the last warm streaks are the intended cooling.
 
 Also: the gravity label no longer repeats the caption ("where that light starts", 25 px higher); the soft scrim under
 the ISCO diagram is a little stronger. Kept: the soft near disk at 32–36 s (the reviewer: "acceptable as depth").
+
+### Round 15 — "Anything still amateur? no"
+
+The fifteenth fresh reviewer found nothing amateur ("the rendering, tone mapping, grain, type and motion all measure at
+a professional level") and listed four polish notes, which were fixed in a final pass:
+
+1. **The payoff line was rushed.** → The blur wipe starts 1.8 s sooner (93.2 s), taking time from the face-on hold;
+   "Like M87\* (EHT 2019): brighter at the bottom." now holds ≈ 4.3 s at full strength.
+2. **Leader lines could be read as parts of the rays.** → One leader style everywhere: 1 px at half strength,
+   touching its feature; the photon diagram's exit labels hang off the side of each ray on horizontal leaders, at
+   the same height, on one baseline.
+3. **The headline was repeated on the morph back.** → "How _Interstellar_ showed it" stays through the return and only
+   the caption changes ("Now back to the real view.").
+4. **Right-column alignment.** → The ISCO legend and the gravity label sit on the column's x = 1200 edge.
+
+Also: the burn to black completes 0.3 s sooner; the title's L–L pair kerned slightly.
+
+**Review rounds: 15.** Rounds 1–14 each found something a demanding studio would send back; round 15 found nothing.

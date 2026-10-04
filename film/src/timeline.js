@@ -116,11 +116,11 @@ export function cameraAt(t) {
 const WIPE = [[60, 0], [67.2, 0], [69.2, 1], [73.6, 1], [75.6, 0], [76, 0]];
 // Telescope blur divider for the payoff: blurred to the right of the divider. It stops at the
 // centre, so the frame ends as a side-by-side: sharp on the left, EHT resolution on the right.
-const TELE = [[90, 0.67], [95.0, 0.67], [97.8, 0.5], [104.4, 0.5], [105.6, 1.05], [108, 1.05]];   // starts at the ring's right edge
+const TELE = [[90, 0.67], [93.2, 0.67], [96.0, 0.5], [104.4, 0.5], [105.6, 1.05], [108, 1.05]];   // starts at the ring's right edge
 // the photon-sphere diagram interlude: the shot goes out to black completely (no second hole behind the
 // diagram): exposure falls in linear light (the tone curve's shoulder keeps the hottest gas longest, and the
 // whole shape stays intact), cooling in colour, with a final crush to true black
-const CRUSH = [[0, 0], [37.0, 0], [38.4, 1], [48.2, 1], [49.4, 0], [108, 0]];
+const CRUSH = [[0, 0], [36.8, 0], [38.1, 1], [48.2, 1], [49.4, 0], [108, 0]];
 
 // Brighter background sky on the dive: the static observer deep in the potential sees
 // starlight blueshifted (already in the shader); this extra gain keeps the lensed
@@ -151,7 +151,7 @@ export function effectsAt(t) {
   const fadeOut = (1 - 0.25 * smootherstep(104.6, 105.8, t)) * (1 - smootherstep(107.25, 107.85, t));
   return {
     wipe: [0, 0, 0, 1 - Math.min(Math.max(wipeX, 0), 1)],   // x, softness, split on/off, beaming amount
-    teleSplit: [teleX, 0.0008, smoothstep(94.2, 95.0, t) * (t < 105.8 ? 1 : 0), 0],
+    teleSplit: [teleX, 0.0008, smoothstep(92.4, 93.2, t) * (t < 105.8 ? 1 : 0), 0],
     // dimmed for the photon-sphere diagram; eased down while the no-Doppler disk (brighter, flatter) fills the frame
     dim: t > 60 && t < 76 ? 1 - 0.32 * Math.min(Math.max(wipeX, 0), 1) : 1,
     crush: Math.min(1, Math.max(0, monotone(CRUSH, t))),
@@ -184,18 +184,17 @@ export const CUES = [
 
   { t0: 62.6, t1: 67.6, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
   { t0: 63.0, t1: 67.6, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
-  { t0: 67.3, t1: 73.9, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 150, align: 'center' },
+  { t0: 67.3, t1: 76.6, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 150, align: 'center' },
   { t0: 67.5, t1: 73.9, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
-  // the return restates the real view's headline, with the caption on the standard row
-  { t0: 74.0, t1: 77.0, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
-  { t0: 74.2, t1: 77.0, kind: 'caption', text: 'Back to the real view.', x: 960, y: 214, align: 'center' },
+  // the return: the headline stays, only the caption changes
+  { t0: 74.1, t1: 76.6, kind: 'caption', text: 'Now back to the real view.', x: 960, y: 214, align: 'center' },
 
   { t0: 81.3, t1: 86.8, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
   { t0: 81.5, t1: 86.8, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
 
-  { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
-  { t0: 96.4, t1: 100.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
-  { t0: 100.4, t1: 104.0, kind: 'caption', text: 'Like M87* (EHT 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
+  { t0: 92.0, t1: 104.5, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
+  { t0: 94.1, t1: 98.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
+  { t0: 98.6, t1: 104.3, kind: 'caption', text: 'Like M87* (EHT 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
 
   // the 3 s end card: in by 105.4 s, held, then picture and type fade out together to black by 107.85 s
   { t0: 104.9, t1: 107.85, kind: 'title', text: 'FALL IN', x: 960, y: 812, align: 'center', fade: 0.55 },
@@ -215,7 +214,7 @@ export const READOUTS = [
 
 // Small labels pinned to screen positions
 export const LABELS = [
-  { t0: 95.4, t1: 104.3, kind: 'split' },   // the payoff's side-by-side: "sharp" | "EHT resolution"
+  { t0: 93.4, t1: 104.3, kind: 'split' },   // the payoff's side-by-side: "sharp" | "EHT resolution"
 ];
 
 // Side panels
@@ -242,7 +241,7 @@ export const HITS = {
   silenceStart: 86.0,
   silenceEnd: 87.0,
   payoff: 90.0,
-  blur: 95.0,
+  blur: 93.2,
   end: 105.0,
 };
 
