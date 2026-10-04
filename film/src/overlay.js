@@ -20,7 +20,7 @@ const FONTS = {
   headline: { family: 'Cormorant Garamond', style: 'normal', weight: 500, size: 64, spacing: 0.01, alpha: 1 },
   caption: { family: 'Jost', style: 'normal', weight: 400, size: 38, spacing: 0.015, alpha: 1 },
   title: { family: 'Cormorant Garamond', style: 'normal', weight: 500, size: 150, spacing: 0.14, alpha: 1 },
-  credit: { family: 'Jost', style: 'normal', weight: 400, size: 34, spacing: 0.03, alpha: 0.9 },
+  credit: { family: 'Jost', style: 'normal', weight: 400, size: 38, spacing: 0.02, alpha: 0.92 },
   mono: { family: 'IBM Plex Mono', style: 'normal', weight: 400, size: 36, spacing: 0, alpha: 0.95 },
   label: { family: 'Jost', style: 'normal', weight: 400, size: 36, spacing: 0.01, alpha: 1 },
 };
@@ -516,7 +516,7 @@ export class Overlay {
       for (const ray of RAYS_GEO.rays) {
         const prog = smootherstep(ray.st, ray.st + RAY_DRAW, lt);
         if (prog <= 0) continue;
-        this.path(o, ray.pts, map, prog, { color: rgba(COL.ember, 0.95), width: 2.4 }, true, `${ray.kind} ray`);
+        this.path(o, ray.pts, map, prog, { color: rgba(COL.white, 0.9), width: 2.4 }, true, `${ray.kind} ray`);
         // emission point on the disk
         const [ex, ey] = map(ray.pts[0]);
         o.fillStyle = rgba(COL.white, 0.95 * Math.min(1, prog * 4));
@@ -578,7 +578,7 @@ export class Overlay {
         const st = T.branch + (ray.kind === 'falls' ? 0.2 : 0);
         const prog = smootherstep(st, st + 1.6, lt);
         if (prog <= 0) return;
-        const style = ray.kind === 'falls' ? { color: rgba(COL.ember, 0.95), width: 2.6 } : { color: rgba(COL.white, 0.85), width: 2.4, dash: [10, 8] };
+        const style = ray.kind === 'falls' ? { color: rgba(COL.ember, 0.95), width: 2.6 } : { color: rgba(COL.white, 0.6), width: 1.8 };
         if (style.dash) o.setLineDash(style.dash);
         this.path(o, ray.pts, map, prog, style, true, `${ray.kind} ray`);
         o.setLineDash([]);
@@ -601,7 +601,7 @@ export class Overlay {
       tag(R('escapes'), 'escapes', 40, 'left', T.branch + 1.6);
     } else if (p.id === 'isco') {
       // right-hand column, over the dimmer receding side of the disk
-      const sc = 26, cx = 1530, cy = 600;
+      const sc = 26, cx = 1530, cy = 566;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
       const o = this.beginDiagram(cx, cy, 345, 345, a);
       this.hole(o, cx, cy, sc, { isco: true });
@@ -627,11 +627,20 @@ export class Overlay {
       }
       this.endDiagram();
       const la = a * smoothstep(2.0, 3.0, lt);
-      this.text('stays in orbit', 'label', cx, cy - ISCO_GEO.stableR * sc - 22, la, 'center');
-      // the spiral is named below the diagram on a leader from its lowest point
-      const low = ISCO_GEO.plunge.reduce((m, p) => (p[1] < m[1] ? p : m), [0, 0]);
-      const [lx0, ly0] = map(low);
-      this.dlabel(ctx, 'spirals in', lx0, ly0, cx, cy + ISCO_GEO.stableR * sc + 50, la * smoothstep(PLUNGE.st + 2, PLUNGE.st + 3, lt), 'center', COL.ember);
+      // one callout style for the two paths: a legend under the diagram (leaders to the inner spiral
+      // would have to cross the rings); the 3 rₛ reference ring carries its own label on the line
+      const lx = cx - 150, ly = cy + ISCO_GEO.stableR * sc + 50;
+      const pa = la * smoothstep(PLUNGE.st + 2, PLUNGE.st + 3, lt);
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = la; ctx.strokeStyle = rgba(COL.white, 0.8); ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.moveTo(lx, ly - 11); ctx.lineTo(lx + 34, ly - 11); ctx.stroke();
+      ctx.globalAlpha = pa; ctx.strokeStyle = rgba(COL.ember, 0.95); ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(lx, ly + 33); ctx.lineTo(lx + 34, ly + 33); ctx.stroke();
+      ctx.fillStyle = rgba(COL.ember, 0.95); ctx.beginPath(); ctx.arc(lx + 34, ly + 33, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      this.text('stays in orbit', 'label', lx + 50, ly, la, 'left');
+      this.text('spirals in', 'label', lx + 50, ly + 44, pa, 'left', COL.ember);
       this.text('3 rₛ', 'label', cx + 6 * sc * Math.cos(Math.PI / 6), cy + 6 * sc * Math.sin(Math.PI / 6) + 12, la, 'center');
     }
   }

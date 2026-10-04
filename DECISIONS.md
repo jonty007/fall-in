@@ -435,3 +435,22 @@ converge on the observer.
 
 Also: the first payoff caption now lands at 96.0 s, when the blur is visibly under way; the Doppler leaders carry
 a dark keyline so they hold on the white-hot disk.
+
+### Round 10 — remaining findings and what was done
+
+1. **Captions arriving after the reveals they explain.** → "How _Interstellar_ showed it" now lands as the morph
+   begins (66.6 s, the morph runs 67.2–69.2 s) and "And back to the real view" just before the return (73.0 s);
+   the payoff's first caption arrives with the blur (94.6 s) and hands straight over to the second (99.6 s).
+2. **Fades to and from the photon interlude looked like a dimmer (flat sepia).** → The interlude now burns out by
+   raising the black point after tone mapping: the darks fall to a deep red-black first and the hottest gas
+   lingers; in the grade, warm darks keep their saturation and lean red as they fall.
+3. **Orange meant different things in different diagrams.** → The gravity diagram's light paths are cream; orange
+   now always means matter or light that falls in.
+4. **The Doppler title block sat off the shared top margin and crowded the arc.** → Back on the 150/214 baselines;
+   the camera tilts up 1.6° in that shot so the arc sits lower, with clear space above it.
+5. **Three callout styles in the ISCO diagram.** → The two paths are named in a small legend under the diagram
+   (leaders to the inner spiral would have had to cross the rings); the 3 rₛ reference ring keeps its label on the
+   line.
+
+Also: the end-card credit set at caption size (38 px); all photon-diagram rays solid (the escaping ray is lighter
+and thinner instead of dashed).

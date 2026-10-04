@@ -264,6 +264,7 @@ export class Renderer {
       gl.uniform1f(u.uBloomStrength, s.bloomStrength);
       gl.uniform4fv(u.uTeleSplit, s.teleSplit);
       gl.uniform1f(u.uFade, s.fade);
+      gl.uniform1f(u.uCrush, s.crush || 0);
       gl.uniform1f(u.uFrame, s.frame);
       gl.uniform1f(u.uGrainPx, s.grainPx);
       gl.uniform1f(u.uVignette, s.vignette);

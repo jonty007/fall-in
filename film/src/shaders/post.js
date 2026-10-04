@@ -100,6 +100,7 @@ uniform float uExposure;
 uniform float uBloomStrength;
 uniform vec4  uTeleSplit;    // x: split position (0..1), y: softness, z: amount (0 = off)
 uniform float uFade;         // global fade to black (1 = visible)
+uniform float uCrush;        // burn to black: black point raised from 0 to 1 (darks go first, highlights linger)
 uniform float uFrame;        // integer frame index for grain
 uniform float uGrainPx;      // device pixels per output pixel (grain cell size)
 uniform float uVignette;
@@ -209,11 +210,16 @@ void main() {
   vec3 v = (uLook.z > 0.5 ? aces(col) : agx(col));
   // grade: richer ember in the mid-tones, whites left white
   float lumaG = dot(v, vec3(0.2126, 0.7152, 0.0722));
-  float satW = smoothstep(0.0, 0.12, lumaG) * (1.0 - smoothstep(0.55, 0.95, lumaG));
+  // (kept into the darks, so dim or faded gas sinks to a deep red-black, not to sepia)
+  float satW = smoothstep(0.0, 0.035, lumaG) * (1.0 - smoothstep(0.55, 0.95, lumaG));
   // warm hues only: the disk's ember gets richer, starlight stays a pale blue-white
   float warm = smoothstep(0.0, 0.08, v.r - v.b);
   v = clamp(lumaG + (v - lumaG) * (1.0 + uLook.y * satW * warm), 0.0, 1.0);
+  // warm darks lean toward red as they fall (as glowing gas does), highlights untouched
+  float dk = warm * (1.0 - smoothstep(0.03, 0.22, lumaG));
+  v.g *= 1.0 - 0.16 * dk; v.b *= 1.0 - 0.3 * dk;
   // a filmic black: lifted by ~1.5/255 so grain lives in the shadows too
+  if (uCrush > 0.0) v = max(v - uCrush, 0.0) / (1.0 - 0.9 * uCrush);
   v = v * (1.0 - 0.009) * uFade + 0.009 * min(uFade * 3.0, 1.0);
 
   // grain: luminance-weighted, one value per output pixel so it survives the 2x downscale,

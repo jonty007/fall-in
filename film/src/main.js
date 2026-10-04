@@ -63,7 +63,7 @@ export function frameState(t) {
       exposure: cam.exposure * fx.dim * EV,
       bloomThreshold: 2.4, bloomStrength: 0.12,
       teleSplit: fx.teleSplit, teleSigmaPx,
-      fade: fx.fade,
+      fade: fx.fade, crush: fx.crush,
       frame: Math.round(t * FPS),
       grainPx: dpr,
       vignette: 0.22,
