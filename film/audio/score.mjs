@@ -10,7 +10,7 @@ import { DURATION, HITS, heartbeatTimes, smootherstep } from '../src/timeline.js
 import { geometry, RAY_DRAW, PHOTON_MAIN, PLUNGE } from '../src/overlay.js';
 
 const N = Math.round(DURATION * SR);
-const PANEL_T0 = { rays: 15.4, photon: 37.4, isco: 49.2 };
+const PANEL_T0 = { rays: 15.4, photon: 38.2, isco: 49.2 };
 
 // ---------------------------------------------------------------- instruments
 // Detuned saw ensemble note (pad / strings): returns stereo buffer of length n
@@ -398,7 +398,7 @@ export function renderScore({ log = console.log, buses = false } = {}) {
     sfx.addMono(b, s1, 0.5, 0.3); addSendMono(b, s1, 0.3);
   }
   // Doppler wipe: a pass-by that follows the divider across the screen
-  for (const [ta, tb, dir] of [[66.2, 68.2, 1], [73.0, 75.0, -1]]) {
+  for (const [ta, tb, dir] of [[66.6, 68.6, 1], [73.2, 75.2, -1]]) {
     const len = tb - ta + 0.8;
     const w = whoosh(len, dir > 0 ? 2400 : 2200, dir > 0 ? 500 : 480, { shape: 'pass', q: 2.0, seed: Math.round(ta) });
     const n = w.length;

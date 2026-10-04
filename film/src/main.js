@@ -33,9 +33,9 @@ export function frameState(t) {
       ...basis,
       fov: cam.fov,
       diskTime: fx.diskTime,
-      tPeak: 4300, rIn: 6, rOut: 30,
+      tPeak: 4500, rIn: 6, rOut: 30,
       wipe: fx.wipe,
-      diskGain: 1, starGain: fx.starBoost, galaxyGain: 0.0005 * Math.pow(fx.starBoost, 0.9), spin: 1,
+      diskGain: 1, starGain: fx.starBoost, galaxyGain: 0.00035 * Math.pow(fx.starBoost, 0.7), spin: 1,
       exposure: cam.exposure * fx.dim,
       bloomThreshold: 2.4, bloomStrength: 0.12,
       teleSplit: fx.teleSplit, teleSigmaPx,
@@ -54,8 +54,9 @@ window.fps = FPS;
 window.rendererName = renderer.rendererName;
 window.seek = async (t, opts = {}) => {
   const st = frameState(t);
-  overlay.draw(t, st.cam);
-  await renderer.render(st.render, { tileRows: opts.tileRows ?? 135, ui: uiCanvas });
+  const noUi = new URLSearchParams(location.search).has('noui');   // for exposure measurements
+  if (!noUi) overlay.draw(t, st.cam);
+  await renderer.render(st.render, { tileRows: opts.tileRows ?? 135, ui: noUi ? null : uiCanvas });
   // let the compositor pick up both canvases
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   return st.cam;

@@ -51,6 +51,24 @@ void main() {
 }
 `;
 
+// small separable Gaussian (soft buffer for sub-pixel rings)
+export const softFrag = header + /* glsl */ `
+uniform sampler2D uSrc;
+uniform vec2 uDir;
+uniform float uSigma;
+void main() {
+  vec3 s = vec3(0.0);
+  float wsum = 0.0;
+  for (int i = -8; i <= 8; i++) {
+    float x = float(i);
+    float w = exp(-0.5 * x * x / (uSigma * uSigma));
+    s += w * texture(uSrc, vUv + uDir * x).rgb;
+    wsum += w;
+  }
+  fragColor = vec4(s / wsum, 1.0);
+}
+`;
+
 // separable Gaussian (telescope blur)
 export const blurFrag = header + /* glsl */ `
 uniform sampler2D uSrc;
@@ -73,6 +91,7 @@ export const compositeFrag = header + /* glsl */ `
 uniform sampler2D uScene;
 uniform sampler2D uBloom;
 uniform sampler2D uTele;
+uniform sampler2D uThin;
 uniform vec2  uRes;
 uniform float uExposure;
 uniform float uBloomStrength;
@@ -133,7 +152,7 @@ uint pcg(uint v) {
 float rnd(uvec3 p) { return float(pcg(p.x + pcg(p.y + pcg(p.z)))) * (1.0 / 4294967296.0); }
 
 void main() {
-  vec3 col = texture(uScene, vUv).rgb * uExposure;
+  vec3 col = (texture(uScene, vUv).rgb + texture(uThin, vUv).rgb) * uExposure;
   float tele = 0.0;
   if (uTeleSplit.z > 0.0) {
     tele = smoothstep(uTeleSplit.x - uTeleSplit.y, uTeleSplit.x + uTeleSplit.y, vUv.x) * uTeleSplit.z;

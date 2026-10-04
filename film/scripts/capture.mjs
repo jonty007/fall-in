@@ -34,13 +34,13 @@ export function parseArgs(argv = process.argv.slice(2)) {
   return out;
 }
 
-export async function openFilm({ cpu = false, headed = false, width = 1920, height = 1080, scale = 2 } = {}) {
+export async function openFilm({ cpu = false, headed = false, width = 1920, height = 1080, scale = 2, query = '' } = {}) {
   const { server, port } = await startServer();
   const browser = await launch({ cpu, headed });
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale });
   page.on('pageerror', (e) => { console.error('[pageerror]', e.message.slice(0, 800)); process.exit(1); });
   page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text().slice(0, 400)); });
-  await page.goto(`http://127.0.0.1:${port}/film/src/index.html`);
+  await page.goto(`http://127.0.0.1:${port}/film/src/index.html${query}`);
   await page.waitForFunction(() => window.ready === true, null, { timeout: 180000 });
   const info = await page.evaluate(() => ({ renderer: window.rendererName, duration: window.duration, fps: window.fps }));
   const close = async () => { await browser.close(); server.close(); };

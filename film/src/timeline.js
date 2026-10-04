@@ -62,27 +62,28 @@ const CAM = [
   [15.4, 47, 85.0, 8, -9.5, 0.4, 0, 27, 8.8],
   [29.2, 42, 84.8, 20, -8.8, 0.4, 0, 27, 8.8],
   // photon sphere: closer, the thin photon ring separates from the disk
-  [33.0, 36.0, 74.0, 36, 11.0, 0.3, 0, 34, 6.0],
-  [45.2, 31.5, 71.0, 56, 11.5, 0.3, 0, 32, 6.0],
+  [33.0, 36.0, 74.0, 36, 11.0, 0.3, 0, 34, 3.6],
+  [45.2, 31.5, 71.0, 56, 11.5, 0.3, 0, 32, 3.0],
   // innermost stable orbit: from above, the gap between shadow and inner edge
-  [49.2, 34.0, 38.0, 74, -5.0, 1.5, 0, 40, 5.6],
-  [59.2, 31.0, 34.0, 88, -4.5, 1.5, 0, 40, 5.6],
+  [49.2, 34.0, 38.0, 74, -5.0, 1.5, 0, 40, 8.4],
+  [59.2, 31.0, 34.0, 88, -4.5, 1.5, 0, 40, 8.4],
   // doppler: almost edge-on, centred
-  [62.6, 24.0, 86.0, 92, 0, 7.5, 0, 40, 6.6],
-  [75.2, 22.0, 85.5, 102, 0, 7.0, 0, 40, 6.6],
+  [62.6, 24.0, 86.0, 92, 0, 7.5, 0, 40, 5.3],
+  [75.2, 22.0, 85.5, 102, 0, 7.0, 0, 40, 5.3],
   // close orbit: dive to 1.7 rs and look up along the edge of the shadow; closest at 86 s
-  [80.0, 7.2, 82.0, 138, 0, 22, -4, 56, 3.4],
-  [82.4, 3.7, 80.5, 166, 0, 60, -9, 78, 1.6],
-  [86.0, 3.4, 80.0, 190, 0, 66, -12, 80, 1.44],
-  [87.0, 3.42, 80.0, 196, 0, 66, -12, 80, 1.44],
+  [80.0, 7.2, 82.0, 138, 0, 22, -4, 56, 2.6],
+  [82.4, 3.7, 80.5, 166, 0, 60, -9, 78, 1.2],
+  [86.0, 3.4, 80.0, 190, 0, 66, -12, 80, 1.1],
+  [87.0, 3.42, 80.0, 196, 0, 66, -12, 80, 1.1],
   // pull back, finding the hole again before the long lens
-  [88.6, 7.0, 66.0, 206, 0, 24, 30, 66, 2.6],
+  [88.6, 7.0, 66.0, 206, 0, 24, 30, 66, 2.0],
   [90.0, 40.0, 38.0, 218, 0, 4, 72, 30, 6.0],
   // payoff: pull far back, 17 degrees from the axis (the angle we see M87* at);
   // rolled so the Doppler-bright side is at the bottom, as in the 2017 EHT image
-  [91.6, 300, 17.0, 226, 0, 0, 90, 11, 8],
-  [104.8, 330, 17.0, 236, 0, 0, 90, 10.5, 8],
-  [108.0, 340, 17.0, 238, 0, 0, 90, 10.5, 8],
+  [91.6, 345, 17.0, 226, 0, 0, 90, 11, 10.4],
+  [104.6, 380, 17.0, 236, 0, 0, 90, 10.5, 10.4],
+  [105.8, 392, 17.0, 237, 2.6, 0, 90, 10.5, 10.4],
+  [108.0, 400, 17.0, 238, 2.7, 0, 90, 10.5, 10.4],
 ];
 const ch = (k) => CAM.map((row) => [row[0], k === 1 ? Math.log(row[1]) : row[k]]);
 const CH = { r: ch(1), incl: ch(2), az: ch(3), yaw: ch(4), pitch: ch(5), roll: ch(6), fov: ch(7), exposure: ch(8) };
@@ -104,29 +105,29 @@ export function cameraAt(t) {
 // Effects
 // ---------------------------------------------------------------------------
 // Doppler wipe: beaming is ON to the right of the divider (screen x in 0..1).
-const WIPE = [[60, 0], [66.2, 0], [68.2, 1.04], [73.0, 1.04], [75.0, 0], [76, 0]];
+const WIPE = [[60, 0], [66.6, 0], [68.6, 1.04], [73.2, 1.04], [75.2, 0], [76, 0]];
 // Telescope blur divider for the payoff: blurred to the right of the divider.
 const TELE = [[90, 1.05], [95.2, 1.05], [98.6, -0.05], [104.2, -0.05], [105.4, 1.05], [108, 1.05]];
 // the photon-sphere diagram interlude dims the shot underneath
-const DIM = [[0, 1], [37.4, 1], [38.4, 0.1], [44.2, 0.1], [45.4, 1], [108, 1]];
+const DIM = [[0, 1], [37.2, 1], [38.4, 0.04], [44.2, 0.04], [45.4, 1], [108, 1]];
 
 // Brighter background sky on the dive: the static observer deep in the potential sees
 // starlight blueshifted (already in the shader); this extra gain keeps the lensed
 // star rings readable at the low exposure the nearby disk forces.
-const STARS = [[0, 1], [76, 1], [82, 3.2], [86, 5], [88, 5], [91.6, 1], [108, 1]];
+const STARS = [[0, 1], [76, 1], [82, 2.2], [86, 3], [88, 3], [91.6, 1], [108, 1]];
 
 // Soft darkening behind text blocks (design px rects: x0, y0, x1, y1, strength)
 const SCRIMS = [
-  { t0: 15.4, t1: 29.2, rect: [40, 70, 1000, 250], k: 0.45 },
+  { t0: 6.8, t1: 12.6, rect: [500, 840, 1420, 1010], k: 0.5 },
+  { t0: 15.4, t1: 29.2, rect: [40, 70, 1000, 250], k: 0.62 },
   { t0: 15.4, t1: 29.2, rect: [1240, 230, 1880, 850], k: 0.62 },
-  { t0: 15.4, t1: 29.2, rect: [40, 890, 760, 1010], k: 0.45 },
-  { t0: 33.0, t1: 45.4, rect: [40, 70, 1000, 250], k: 0.45 },
-  { t0: 33.0, t1: 45.4, rect: [40, 860, 900, 1030], k: 0.5 },
-  { t0: 49.2, t1: 59.4, rect: [40, 70, 1000, 250], k: 0.6 },
-  { t0: 49.2, t1: 59.4, rect: [1340, 480, 1880, 1040], k: 0.65 },
-  { t0: 49.2, t1: 59.4, rect: [40, 860, 900, 1030], k: 0.72 },
-  { t0: 61.4, t1: 75.2, rect: [420, 60, 1500, 300], k: 0.5 },
-  { t0: 61.4, t1: 66.4, rect: [40, 860, 960, 1030], k: 0.72 },
+  { t0: 15.4, t1: 29.2, rect: [40, 880, 900, 1030], k: 0.6 },
+  { t0: 33.0, t1: 45.4, rect: [40, 70, 1000, 250], k: 0.62 },
+  { t0: 49.2, t1: 59.4, rect: [40, 70, 1000, 250], k: 0.68 },
+  { t0: 49.2, t1: 59.4, rect: [1320, 440, 1880, 1040], k: 0.7 },
+  { t0: 49.2, t1: 59.4, rect: [40, 860, 980, 1030], k: 0.75 },
+  { t0: 61.4, t1: 75.4, rect: [380, 60, 1540, 290], k: 0.62 },
+  { t0: 61.4, t1: 66.8, rect: [40, 860, 1060, 1030], k: 0.78 },
 ];
 
 export function scrimsAt(t) {
@@ -142,11 +143,12 @@ export function effectsAt(t) {
   const wipeX = monotone(WIPE, t);
   const teleX = monotone(TELE, t);
   const fadeIn = smootherstep(0.0, 2.2, t);
-  const fadeOut = 1 - 0.72 * smootherstep(104.6, 105.8, t);
+  const fadeOut = 1 - 0.78 * smootherstep(104.6, 105.8, t);
   return {
-    wipe: [wipeX, 0.004, t > 60 && t < 76 ? 1 : 0, 1],
+    wipe: [wipeX, 0.012, t > 60 && t < 76 ? 1 : 0, 1],
     teleSplit: [teleX, 0.006, t > 94 && t < 105.6 ? 1 : 0, 0],
-    dim: monotone(DIM, t),
+    // dimmed for the photon-sphere diagram; eased down while the no-Doppler disk (brighter, flatter) fills the frame
+    dim: monotone(DIM, t) * (t > 60 && t < 76 ? 1 - 0.32 * Math.min(Math.max(wipeX, 0), 1) : 1),
     fade: fadeIn * fadeOut,
     diskTime: 60 + t * 11,
     starBoost: monotone(STARS, t),
@@ -167,51 +169,51 @@ export const CUES = [
   { t0: 23.0, t1: 28.6, kind: 'caption', text: 'Bent over the top, and under.', x: 120, y: 214 },
 
   { t0: 33.2, t1: 44.8, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
-  { t0: 34.6, t1: 39.2, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
-  { t0: 40.0, t1: 44.8, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
+  { t0: 34.4, t1: 39.2, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
+  { t0: 39.8, t1: 44.8, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
 
   { t0: 49.4, t1: 59.2, kind: 'headline', text: 'The last stable orbit', x: 120, y: 150 },
-  { t0: 51.0, t1: 58.8, kind: 'caption', text: 'Inside 3 rₛ, matter plunges in.', x: 120, y: 214 },
+  { t0: 50.6, t1: 58.8, kind: 'caption', text: 'Inside 3 rₛ, matter plunges in.', x: 120, y: 214 },
 
-  { t0: 61.6, t1: 66.2, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
-  { t0: 62.4, t1: 66.2, kind: 'caption', text: 'The side moving toward you is brighter.', x: 960, y: 214, align: 'center' },
-  { t0: 68.4, t1: 73.2, kind: 'headline', text: 'How Interstellar showed it', x: 960, y: 150, align: 'center' },
-  { t0: 68.8, t1: 73.2, kind: 'caption', text: 'Doppler shift left out, on purpose.', x: 960, y: 214, align: 'center' },
-  { t0: 68.8, t1: 73.2, kind: 'cite', text: 'James, von Tunzelmann, Franklin & Thorne, 2015', x: 960, y: 270, align: 'center' },
+  { t0: 61.4, t1: 66.6, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
+  { t0: 61.9, t1: 66.6, kind: 'caption', text: 'The side moving toward you is brighter.', x: 960, y: 214, align: 'center' },
+  { t0: 68.8, t1: 73.4, kind: 'headline', text: 'How Interstellar showed it', x: 960, y: 150, align: 'center' },
+  { t0: 69.0, t1: 73.4, kind: 'caption', text: 'Left out on purpose, per Thorne’s team, 2015.', x: 960, y: 214, align: 'center' },
 
-  { t0: 81.4, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 760 },
-  { t0: 82.0, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 824 },
+  { t0: 81.6, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
+  { t0: 82.0, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
 
   { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
-  { t0: 94.6, t1: 98.8, kind: 'caption', text: 'Our black hole, blurred to EHT sharpness.', x: 960, y: 214, align: 'center' },
-  { t0: 99.0, t1: 104.2, kind: 'caption', text: 'M87*, 2019: also a lopsided ring.', x: 960, y: 214, align: 'center' },
+  { t0: 94.4, t1: 99.2, kind: 'caption', text: 'Our black hole, blurred to EHT sharpness.', x: 960, y: 214, align: 'center' },
+  { t0: 99.6, t1: 104.2, kind: 'caption', text: 'The real M87*: also a lopsided ring.', x: 960, y: 214, align: 'center' },
 
-  { t0: 105.2, t1: 108.2, kind: 'title', text: 'FALL IN', x: 960, y: 520, align: 'center', fade: 0.5 },
-  { t0: 105.5, t1: 108.2, kind: 'credit', text: 'Made by @vivekst1 with Claude Opus 5.5 from one prompt', x: 960, y: 640, align: 'center', fade: 0.5 },
+  { t0: 105.2, t1: 108.2, kind: 'title', text: 'FALL IN', x: 960, y: 700, align: 'center', fade: 0.5 },
+  { t0: 105.5, t1: 108.2, kind: 'credit', text: 'Made by @vivekst1 with Claude Opus 5.5 from one prompt', x: 960, y: 800, align: 'center', fade: 0.5 },
 ];
 
 // Readout blocks (mono). `lines` is a function of (t, cam, phys) so physics values
 // come from formulas at render time.
 export const READOUTS = [
-  { t0: 15.6, t1: 29.0, x: 120, y: 940, lines: (t, c, P) => [`r       ${(c.r / 2).toFixed(1)} rₛ`, `clock   ${P.clockRate(c.r).toFixed(3)} × a far-away clock`] },
-  { t0: 38.0, t1: 44.8, x: 120, y: 904, lines: (t, c, P) => [`photon orbit   ${(P.ph.r / 2).toFixed(3)} rₛ`, `shadow edge    ${(P.ph.bc / 2).toFixed(3)} rₛ`, `solved from the geodesic equation`] },
-  { t0: 50.0, t1: 59.2, x: 120, y: 904, lines: (t, c, P) => [`last stable orbit   ${(P.isco.r / 2).toFixed(3)} rₛ`, `orbital speed       ${P.isco.v.toFixed(3)} c`, `solved from the geodesic equation`] },
-  { t0: 62.4, t1: 66.2, x: 120, y: 904, lines: (t, c, P) => [`inner edge, seen edge-on`, `approaching g = ${P.gApp.toFixed(2)}   receding g = ${P.gRec.toFixed(2)}`, `brightness goes as g⁴: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}×`] },
-  { t0: 81.4, t1: 85.9, x: 120, y: 906, lines: (t, c, P) => [`r           ${(c.r / 2).toFixed(2)} rₛ`, `clock rate  ${P.clockRate(c.r).toFixed(2)}`, `starlight   ×${(1 / P.clockRate(c.r)).toFixed(2)} bluer`] },
-  { t0: 99.0, t1: 104.2, x: 960, y: 940, align: 'center', lines: () => ['M87* · Event Horizon Telescope · April 2019', 'ring ≈ 42 µas · ≈ 6.5 billion Suns'] },
+  { t0: 15.6, t1: 29.0, x: 120, y: 930, lines: (t, c, P) => [`distance  ${(c.r / 2).toFixed(1)} rₛ`, `time runs ${((1 - P.clockRate(c.r)) * 100).toFixed(1)}% slower`] },
+  { t0: 38.6, t1: 44.8, x: 120, y: 930, lines: (t, c, P) => [`photon orbit  ${(P.ph.r / 2).toFixed(3)} rₛ`, `shadow edge   ${(P.ph.bc / 2).toFixed(3)} rₛ`] },
+  { t0: 50.0, t1: 59.2, x: 120, y: 930, lines: (t, c, P) => [`last stable orbit  ${(P.isco.r / 2).toFixed(3)} rₛ`, `orbital speed      ${P.isco.v.toFixed(3)} c`] },
+  { t0: 61.9, t1: 66.6, x: 120, y: 930, lines: (t, c, P) => [`approaching g ${P.gApp.toFixed(2)} · receding g ${P.gRec.toFixed(2)}`, `brightness goes as g⁴: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}×`] },
+  { t0: 81.6, t1: 85.9, x: 120, y: 900, lines: (t, c, P) => [`distance   ${(c.r / 2).toFixed(2)} rₛ`, `time runs  ${((1 - P.clockRate(c.r)) * 100).toFixed(0)}% slower`, `starlight  ${(1 / P.clockRate(c.r)).toFixed(2)}× bluer`] },
+  { t0: 99.6, t1: 104.2, x: 960, y: 984, align: 'center', lines: () => ['for comparison, M87* (EHT, 2019):', 'ring ≈ 42 µas · ≈ 6.5 billion Suns'] },
 ];
 
 // Small labels pinned to screen positions
 export const LABELS = [
-  { t0: 66.0, t1: 68.6, kind: 'divider' }, // drawn at the wipe position
-  { t0: 72.8, t1: 75.2, kind: 'divider' },
-  { t0: 95.0, t1: 99.0, kind: 'teleDivider' },
+  { t0: 66.4, t1: 68.9, kind: 'divider' }, // drawn at the wipe position
+  { t0: 73.0, t1: 75.4, kind: 'divider' },
+  { t0: 95.0, t1: 98.8, kind: 'teleDivider' },
+  { t0: 95.6, t1: 104.2, kind: 'ourRender' },   // pins "our render" to the ring so it is never mistaken for M87*
 ];
 
 // Side panels
 export const PANELS = [
   { id: 'rays', t0: 15.4, t1: 29.2 },
-  { id: 'photon', t0: 37.4, t1: 45.0 },
+  { id: 'photon', t0: 38.2, t1: 45.0 },
   { id: 'isco', t0: 49.2, t1: 59.4 },
 ];
 
@@ -229,8 +231,8 @@ export const HITS = {
   photon: 30.0,
   isco: 46.0,
   doppler: 60.0,
-  wipeOff: 66.0,
-  wipeOn: 73.0,
+  wipeOff: 66.6,
+  wipeOn: 73.2,
   dive: 76.0,
   silenceStart: 86.0,
   silenceEnd: 87.0,

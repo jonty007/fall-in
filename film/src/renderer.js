@@ -1,6 +1,6 @@
 // WebGL2 renderer: scene (geodesic ray tracing) -> bloom / telescope blur -> composite.
 import { sceneFrag, fullscreenVert } from './shaders/scene.js';
-import { downFrag, upFrag, blurFrag, compositeFrag, overlayFrag } from './shaders/post.js';
+import { downFrag, upFrag, blurFrag, softFrag, compositeFrag, overlayFrag } from './shaders/post.js';
 import { buildBlackbodyLUT, buildDiskProfile, BB_LUT, DISK_LUT } from './physics.js';
 
 function compile(gl, type, src) {
@@ -39,21 +39,23 @@ function makeTex(gl, w, h) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   return tex;
 }
-// attachments: 1 (default) or 2 (scene: full image + disk-only image)
+// attachments: 1 (default) or 3 (scene: full image + disk-only image + sub-pixel rings)
 function target(gl, w, h, attachments = 1) {
   const tex = makeTex(gl, w, h);
   const fb = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-  let tex2 = null;
-  if (attachments === 2) {
+  let tex2 = null, tex3 = null;
+  if (attachments === 3) {
     tex2 = makeTex(gl, w, h);
+    tex3 = makeTex(gl, w, h);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, tex2, 0);
-    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, tex3, 0);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
   }
   const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
   if (st !== gl.FRAMEBUFFER_COMPLETE) throw new Error('FBO incomplete ' + st);
-  return { tex, tex2, fb, w, h };
+  return { tex, tex2, tex3, fb, w, h };
 }
 
 export class Renderer {
@@ -75,6 +77,7 @@ export class Renderer {
     this.down = program(gl, vs, downFrag);
     this.up = program(gl, vs, upFrag);
     this.blur = program(gl, vs, blurFrag);
+    this.soft = program(gl, vs, softFrag);
     this.comp = program(gl, vs, compositeFrag);
     this.ovl = program(gl, vs, overlayFrag);
     this.uiTex = gl.createTexture();
@@ -102,7 +105,8 @@ export class Renderer {
   resize(w, h) {
     const gl = this.gl;
     this.w = w; this.h = h;
-    this.sceneT = target(gl, w, h, 2);
+    this.sceneT = target(gl, w, h, 3);
+    this.thinA = target(gl, w, h);
     this.bloomDown = [];
     this.bloomUp = [];
     let bw = Math.ceil(w / 2), bh = Math.ceil(h / 2);
@@ -202,6 +206,20 @@ export class Renderer {
     }
     const bloomTex = this.bloomUp[0].tex;
 
+    // soften the sub-pixel rings: horizontal into thinA, vertical into thinB
+    const sig = 2.2 * (this.h / 2160);
+    this.pass(this.soft, this.thinA, (u) => {
+      this.bindTex(0, this.sceneT.tex3, u.uSrc);
+      gl.uniform2f(u.uDir, 1 / this.w, 0);
+      gl.uniform1f(u.uSigma, Math.max(sig, 0.8));
+    });
+    if (!this.thinB) this.thinB = target(gl, this.w, this.h);
+    this.pass(this.soft, this.thinB, (u) => {
+      this.bindTex(0, this.thinA.tex, u.uSrc);
+      gl.uniform2f(u.uDir, 0, 1 / this.h);
+      gl.uniform1f(u.uSigma, Math.max(sig, 0.8));
+    });
+
     // telescope blur (only when used)
     if (s.teleSplit[2] > 0) {
       // the telescope view uses the disk-only image: a radio interferometer sees no starlight
@@ -234,6 +252,7 @@ export class Renderer {
       this.bindTex(0, this.sceneT.tex, u.uScene);
       this.bindTex(1, bloomTex, u.uBloom);
       this.bindTex(2, this.teleA.tex, u.uTele);
+      this.bindTex(3, this.thinB.tex, u.uThin);
       gl.uniform2f(u.uRes, this.w, this.h);
       gl.uniform1f(u.uExposure, s.exposure);
       gl.uniform1f(u.uBloomStrength, s.bloomStrength);

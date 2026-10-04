@@ -198,3 +198,41 @@ gets two intermediate keys so the hole is never stranded in a corner; galaxy haz
     overlay of the same `t`. The DOM overlay canvas is hidden.
 38. **Poster**: portrait 2000×3000 (`film/out/poster.jpg`, `film/scripts/poster.mjs`), rendered by the same
     shader at 1200×1800 CSS px × 2 and Lanczos-scaled, with the opening question, title and credit.
+
+### Round 2 — five worst findings and what was done
+
+1. **Diagrams still pasted onto the hero render** (the photon interlude showed a filled schematic hole next to
+   the real shadow; labels on smoked "chips"; rays crossing readouts; V-corners where rays met the disk line;
+   a scribbly three-loop orbit). → Diagrams are strokes only (no filled shapes); the shot under the photon
+   interlude is pulled down ~4.6 stops so the diagram reads as a plate; the diagram starts only after the dim;
+   labels sit outside the strokes on 1 px leader lines (no chips); the gravity diagram's disk is a heavier
+   soft bar with an emission dot where each ray leaves it; the stable orbit is two clean loops; glowing path
+   heads replaced by small crisp dots; masks tightened so nothing runs into text.
+2. **Disk still read as brushed metal/wood; no hot core in face-on and no-Doppler views; flat white clip; grade
+   drift.** → Exposure set by measurement instead of by eye (`film/scripts/measure.mjs` renders each camera key
+   without text and reports clipped-white %, body median and p99): ≈ 1–3 % clipped white where the Doppler side
+   is hot, body median ≈ 0.3–0.4, p99 ≈ 0.94; face-on ISCO +1.5×, photon shot −0.5×, close orbit −0.75×,
+   payoff +1.3×, and an exposure ease tied to the Doppler wipe because the no-shift disk is uniformly bright.
+   T_peak 4500 K (4800 K pushed the body to cream). Turbulence made more isotropic (clumps, sparse hot knots,
+   fewer concentric stripes, shorter shear lifetime) and filtered more conservatively.
+3. **Payoff caption made our blurred render read as the EHT photo.** → A leader-line label pins "our render,
+   at EHT resolution" to the ring for the whole payoff; the caption says "The real M87*: also a lopsided ring."
+   and the facts start with "for comparison, M87* (EHT, 2019):". The ring was made ~13 % smaller so its halo
+   clears the type.
+4. **Type too small or on bright disk; some captions too short; three stacked centred tiers.** → Every label
+   and readout is now ≥ 34 px; readouts cut to two short lines ("time runs 2.3% slower" instead of
+   "clock 0.977 × …"); stronger, larger scrims; the first Doppler caption held 4.7 s; the citation tier merged
+   into the caption ("Left out on purpose, per Thorne’s team, 2015."), full reference in SOURCES.md. The end-card
+   credit keeps the brief's exact 10-word wording (it is the requested credit, not a caption).
+5. **Motion: strobing 1 px wipe line, wipe labels pinned on the wrong side, popping lensed stars, dotted
+   higher-order photon ring, shimmer on the far-side arc.** → The wipe line is smeared over its half-frame
+   travel (180° shutter) and runs full height with a softer seam; its labels travel with it and fade near the
+   frame edges. Star magnification capped at 24× (finite star size) so stars near caustics no longer flash.
+   Disk images thinner than ~3 px are routed into a third render target and softened with a σ ≈ 1.1 px
+   (output) Gaussian before compositing, so the n ≥ 2 rings draw as continuous hairlines instead of dots.
+   Disk texture filter widened (footprint × 3).
+
+Also from round 2: title cards re-set in Cormorant Garamond 500 with moderate tracking instead of thin, widely
+spaced geometric capitals; end card re-framed so the dim ring sits above the title and the credit runs over
+black; close-orbit star gain lowered (×3 instead of ×5) and its galaxy haze reduced; a soft scrim under the title
+subdues lensed star arcs near the letters; repeated "solved from the geodesic equation" lines removed.

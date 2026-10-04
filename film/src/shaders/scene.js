@@ -31,6 +31,7 @@ uniform sampler2D uLut;     // row 0: blackbody, row 1: disk temperature profile
 
 layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec4 fragDisk;   // disk light only (for the telescope view)
+layout(location = 2) out vec4 fragThin;   // sub-pixel lensed rings, softened in post so they draw as lines, not dots
 
 const float PI = 3.14159265358979;
 const int   MAX_STEPS = 1100;
@@ -126,19 +127,21 @@ float diskLayer(float r, float ang, float lr, float age, float seed, float lod) 
   // streaks: stretched along the orbit, displaced by the clumps
   float sa = a + 0.55 * lr;  // gentle trailing spiral pitch for the fine structure
   vec2 cs2 = vec2(cos(sa), sin(sa));
-  vec3 p2 = vec3(cs2 * 5.0, lr * 9.0 + seed * 3.17 + big * 1.1);
+  vec3 p2 = vec3(cs2 * 7.0, lr * 6.5 + seed * 3.17 + big * 1.1);
   float streak = fbm(p2, lod);
   // fine wisps: smooth (no ridges, whose cusps alias), faded by the pixel footprint
   vec3 q = vec3(cs2 * 9.0, lr * 22.0 + seed * 5.3 + big * 2.0);
   float wisp = snoise(q) * (1.0 - smoothstep(0.2, 0.9, lod * 2.4));
-  return big * 1.0 + streak * 0.34 + wisp * 0.12;
+  // sparse hot knots riding the flow
+  float knot = smoothstep(0.5, 0.9, snoise(p1 * 2.3 + vec3(9.1, 2.7, seed))) * (1.0 - smoothstep(0.2, 0.9, lod * 1.5));
+  return big * 1.0 + streak * 0.26 + wisp * 0.1 + knot * 0.55;
 }
 
 // returns rgb emission (already * alpha) and alpha
 vec4 diskSample(vec3 P, float r, float cosInc, float g, float lod) {
   float ang = atan(P.z, P.x);
   float lr = log(r);
-  const float PERIOD = 300.0;
+  const float PERIOD = 210.0;
   float ph = uTime / PERIOD;
   float n = 0.0, wsum2 = 0.0;
   for (int k = 0; k < 3; k++) {
@@ -440,27 +443,32 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
   Jy = escaped ? tEsc * dPhi * dAl.y + nrm * sin(phiEsc) * dPs.y : ddy;
 }
 
-vec3 shade(Hit h0, Hit h1, Hit h2, int nh, bool escaped, vec3 Dsky, Lens L, float gsky, out vec3 diskOnly) {
+vec3 shade(Hit h0, Hit h1, Hit h2, int nh, bool escaped, vec3 Dsky, Lens L, float gsky, out vec3 diskOnly, out vec3 thin) {
   vec3 col = vec3(0.0);
+  thin = vec3(0.0);
   float trans = 1.0;
   for (int k = 0; k < 3; k++) {
     if (k >= nh || trans < 0.002) break;
     Hit h = h2;
     if (k == 0) h = h0; else if (k == 1) h = h1;
     float fp = clamp(h.fp, 0.0, h.D.x * 0.5);
-    float lod = fp / h.D.x * 9.0 * 2.2;
+    float lod = fp / h.D.x * 9.0 * 3.0;
     vec4 ds = diskSample(h.P, h.D.x, h.D.y, h.D.z, lod);
-    col += trans * ds.rgb;
+    // an image of the disk thinner than ~3 px (the higher-order rings) goes to the soft buffer
+    float bandPx = (uRout - uRin) / max(h.fp, 1e-6);
+    float tw = k == 0 ? 0.0 : smoothstep(4.0, 2.0, bandPx);
+    col += trans * ds.rgb * (1.0 - tw);
+    thin += trans * ds.rgb * tw;
     trans *= 1.0 - ds.a;
   }
-  diskOnly = col;
+  diskOnly = col + thin;
   if (escaped && trans > 0.003) col += trans * sky(Dsky, L, gsky);
   return col;
 }
 
 vec3 rayDir(vec2 p) { return normalize(uCamFwd + uTanHalfFov * (p.x * uCamRight + p.y * uCamUp)); }
 
-vec3 sample1(vec2 p, vec2 pixStep, float wipe, float gsky, float pixAng, out vec3 dcol, out float b) {
+vec3 sample1(vec2 p, vec2 pixStep, float wipe, float gsky, float pixAng, out vec3 dcol, out vec3 thin, out float b) {
   vec3 d = rayDir(p);
   vec3 ddx = rayDir(p + vec2(pixStep.x, 0.0)) - d;
   vec3 ddy = rayDir(p + vec2(0.0, pixStep.y)) - d;
@@ -468,10 +476,10 @@ vec3 sample1(vec2 p, vec2 pixStep, float wipe, float gsky, float pixAng, out vec
   trace(d, ddx, ddy, wipe, h0, h1, h2, nh, escaped, Dsky, Jx, Jy, b);
   Lens L;
   L.dx = Jx; L.dy = Jy;
-  L.area = max(length(cross(Jx, Jy)), pixAng * pixAng / 400.0);   // cap the magnification (finite stellar size); pixAng here is per Jacobian step
+  L.area = max(length(cross(Jx, Jy)), pixAng * pixAng / 24.0);    // cap the magnification (finite stellar size, and no popping near caustics)
   L.ok = 1.0;
   L.scale = pixStep.y / (2.0 / uRes.y);
-  return shade(h0, h1, h2, nh, escaped, Dsky, L, gsky, dcol);
+  return shade(h0, h1, h2, nh, escaped, Dsky, L, gsky, dcol, thin);
 }
 
 void main() {
@@ -481,8 +489,8 @@ void main() {
   float pixAng = 2.0 * uTanHalfFov / uRes.y;
   float gsky = inversesqrt(1.0 - 2.0 / length(uCamPos));   // starlight blueshift for the static camera
 
-  vec3 dcol; float b;
-  vec3 col = sample1(p, vec2(px), wipe, gsky, pixAng, dcol, b);
+  vec3 dcol, thin; float b;
+  vec3 col = sample1(p, vec2(px), wipe, gsky, pixAng, dcol, thin, b);
 
   // adaptive supersampling of the photon ring: rays whose impact parameter is within
   // 10 % of the critical value sqrt(27) M form the exponentially thin higher-order images
@@ -492,18 +500,22 @@ void main() {
     vec2 offs[NS] = vec2[NS](vec2(-0.4375, -0.0625), vec2(-0.3125, 0.3125), vec2(-0.1875, -0.3125), vec2(-0.0625, 0.1875),
                              vec2(0.0625, -0.4375), vec2(0.1875, 0.4375), vec2(0.3125, -0.1875), vec2(0.4375, 0.0625));
     for (int k = 0; k < NS; k++) {
-      vec3 dsub; float bs;
-      col += sample1(p + offs[k] * px, vec2(px) * 0.35, wipe, gsky, pixAng * 0.35, dsub, bs);
+      vec3 dsub, tsub; float bs;
+      col += sample1(p + offs[k] * px, vec2(px) * 0.35, wipe, gsky, pixAng * 0.35, dsub, tsub, bs);
       dcol += dsub;
+      thin += tsub;
     }
     col /= float(NS + 1);
     dcol /= float(NS + 1);
+    thin /= float(NS + 1);
   }
 
   if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
   if (any(isnan(dcol)) || any(isinf(dcol))) dcol = vec3(0.0);
   fragColor = vec4(max(col, vec3(0.0)), 1.0);
+  if (any(isnan(thin)) || any(isinf(thin))) thin = vec3(0.0);
   fragDisk = vec4(max(dcol, vec3(0.0)), 1.0);
+  fragThin = vec4(max(thin, vec3(0.0)), 1.0);
 }
 `;
 
