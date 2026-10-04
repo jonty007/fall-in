@@ -217,9 +217,15 @@ void main() {
   v = clamp(lumaG + (v - lumaG) * (1.0 + uLook.y * satW * warm), 0.0, 1.0);
   // warm darks lean toward red as they fall (as glowing gas does), highlights untouched
   float dk = warm * (1.0 - smoothstep(0.03, 0.22, lumaG));
-  v.g *= 1.0 - 0.16 * dk; v.b *= 1.0 - 0.3 * dk;
+  v.g *= 1.0 - 0.07 * dk; v.b *= 1.0 - 0.15 * dk;
   // a filmic black: lifted by ~1.5/255 so grain lives in the shadows too
-  if (uCrush > 0.0) v = max(v - uCrush, 0.0) / (1.0 - 0.9 * uCrush);
+  if (uCrush > 0.0) {
+    // burn by luminance with each pixel's colour kept: the darks go first, the hottest gas lingers
+    float Lb = max(dot(v, vec3(0.2126, 0.7152, 0.0722)), 1e-5);
+    v *= max(Lb - 0.85 * uCrush, 0.0) / (Lb * (1.0 - 0.8 * uCrush)) * (1.0 - smoothstep(0.85, 1.0, uCrush));
+    // and what lingers cools as it goes: white toward orange toward deep ember
+    v *= mix(vec3(1.0), vec3(1.0, 0.56, 0.26), smoothstep(0.0, 0.6, uCrush));
+  }
   v = v * (1.0 - 0.009) * uFade + 0.009 * min(uFade * 3.0, 1.0);
 
   // grain: luminance-weighted, one value per output pixel so it survives the 2x downscale,

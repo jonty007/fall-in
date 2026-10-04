@@ -1,6 +1,6 @@
 // Text and diagram layer: a 2D canvas above the WebGL canvas, drawn in a
 // 1920x1080 design space at device resolution. Never blurred, never graded.
-import { CUES, READOUTS, PANELS, LABELS, smoothstep, smootherstep } from './timeline.js';
+import { CUES, READOUTS, PANELS, LABELS, smoothstep, smootherstep, effectsAt } from './timeline.js';
 import * as P from './physics.js';
 
 const COL = {
@@ -553,7 +553,7 @@ export class Overlay {
           // while it moves: a faint path with a bright fading trail and a glowing head, so the lap
           // reads as motion; once it has left, the whole path comes up to full strength
           const base = 0.3 + 0.7 * done;
-          this.path(o, ray.pts, map, prog, { color: rgba(COL.white, base), width: 3.2 }, false, 'main ray');
+          this.path(o, ray.pts, map, prog, { color: rgba(COL.white, base), width: 2.6 }, false, 'main ray');
           if (lt < T.exit[1] + 0.8) {
             const trail = 420, k0 = Math.max(0, n - trail);
             for (let c = 0; c < 6; c++) {
@@ -561,7 +561,7 @@ export class Overlay {
               if (i1 - i0 < 2) continue;
               o.save();
               o.strokeStyle = rgba(COL.white, (1 - base) * ((c + 1) / 6) * (1 - done));
-              o.lineWidth = 3.2; o.lineCap = 'round'; o.lineJoin = 'round';
+              o.lineWidth = 2.6; o.lineCap = 'round'; o.lineJoin = 'round';
               o.beginPath();
               for (let k = i0; k <= Math.min(i1, n - 1); k++) { const [X, Y] = map(ray.pts[k]); if (k === i0) o.moveTo(X, Y); else o.lineTo(X, Y); }
               o.stroke(); o.restore();
@@ -578,7 +578,7 @@ export class Overlay {
         const st = T.branch + (ray.kind === 'falls' ? 0.2 : 0);
         const prog = smootherstep(st, st + 1.6, lt);
         if (prog <= 0) return;
-        const style = ray.kind === 'falls' ? { color: rgba(COL.ember, 0.95), width: 2.6 } : { color: rgba(COL.white, 0.6), width: 1.8 };
+        const style = ray.kind === 'falls' ? { color: rgba(COL.ember, 0.95), width: 2.4 } : { color: rgba(COL.white, 0.6), width: 1.8 };
         if (style.dash) o.setLineDash(style.dash);
         this.path(o, ray.pts, map, prog, style, true, `${ray.kind} ray`);
         o.setLineDash([]);
@@ -588,8 +588,8 @@ export class Overlay {
       this.dlabel(ctx, `photon sphere, ${(PHYS.ph.r / 2).toFixed(1)} rₛ`, cx - 3 * sc, cy, cx - 3 * sc - 76, cy + 12, a * smoothstep(2.4, 3.2, lt), 'right');
       // the falling ray is named on its way in, outside the loop, where it is the only ember line
       const fall = PHOTON_GEO.find((r) => r.kind === 'falls');
-      const fpt = fall && fall.pts.find(([x]) => x > -5.6);
-      const fa = a * smoothstep(T.branch + 0.6, T.branch + 1.4, lt);
+      const fpt = fall && fall.pts.find(([x]) => x > -4.2);
+      const fa = a * smoothstep(T.branch + 0.6, T.branch + 1.3, lt);
       if (fpt && fa > 0) { const [fx, fy] = map(fpt); this.dlabel(ctx, 'falls in', fx, fy + 4, fx - 20, fy + 66, fa, 'right', COL.ember); }
       const R = (k) => PHOTON_GEO.find((r) => (k === 'main' ? r.main : r.kind === k));
       const tag = (ray, txt, dx, align, t0) => {
@@ -597,8 +597,8 @@ export class Overlay {
         const pt = ray && ray.pts.find(([x, y]) => y < -5.0 && Math.abs(x) < 9);
         if (pt && ta > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, txt, ex, ey, ex + dx, ey + 70, ta, align); }
       };
-      tag(R('main'), 'orbits, then leaves', -40, 'right', T.exit[1]);
-      tag(R('escapes'), 'escapes', 40, 'left', T.branch + 1.6);
+      tag(R('main'), 'orbits, then leaves', -40, 'right', T.branch + 1.3);
+      tag(R('escapes'), 'escapes', 40, 'left', T.branch + 2.0);
     } else if (p.id === 'isco') {
       // right-hand column, over the dimmer receding side of the disk
       const sc = 26, cx = 1530, cy = 566;
@@ -606,7 +606,7 @@ export class Overlay {
       const o = this.beginDiagram(cx, cy, 345, 345, a);
       this.hole(o, cx, cy, sc, { isco: true });
       const sp = smootherstep(0.8, 6.0, lt);
-      this.path(o, ISCO_GEO.stable, map, sp, { color: rgba(COL.white, 0.7), width: 1.6 }, true, 'stable orbit');
+      this.path(o, ISCO_GEO.stable, map, sp, { color: rgba(COL.white, 0.85), width: 1.8 }, true, 'stable orbit');
       if (sp >= 1) {
         // the stable particle keeps going round
         const ang = ((lt - 6.0) / 3.2) * Math.PI * 2;
@@ -620,7 +620,7 @@ export class Overlay {
         for (let c = 0; c < K; c++) {
           const i0 = Math.floor((n * c) / K), i1 = Math.floor((n * (c + 1)) / K);
           if (i1 - i0 < 1) continue;
-          this.path(o, pts.slice(i0, i1 + 1), map, 1, { color: rgba(COL.ember, 0.3 + 0.65 * ((c + 1) / K)), width: 2.2 }, false, 'plunge');
+          this.path(o, pts.slice(i0, i1 + 1), map, 1, { color: rgba(COL.ember, 0.3 + 0.65 * ((c + 1) / K)), width: 2.4 }, false, 'plunge');
         }
         const [hx, hy] = map(pts[n - 1]);
         o.fillStyle = rgba(pp < 1 ? COL.white : COL.ember, 0.95); o.beginPath(); o.arc(hx, hy, pp < 1 ? 3.6 : 4.2, 0, Math.PI * 2); o.fill();
@@ -633,7 +633,7 @@ export class Overlay {
       const pa = la * smoothstep(PLUNGE.st + 2, PLUNGE.st + 3, lt);
       ctx.save();
       ctx.lineCap = 'round';
-      ctx.globalAlpha = la; ctx.strokeStyle = rgba(COL.white, 0.8); ctx.lineWidth = 1.8;
+      ctx.globalAlpha = la; ctx.strokeStyle = rgba(COL.white, 0.85); ctx.lineWidth = 1.8;
       ctx.beginPath(); ctx.moveTo(lx, ly - 11); ctx.lineTo(lx + 34, ly - 11); ctx.stroke();
       ctx.globalAlpha = pa; ctx.strokeStyle = rgba(COL.ember, 0.95); ctx.lineWidth = 2.4;
       ctx.beginPath(); ctx.moveTo(lx, ly + 33); ctx.lineTo(lx + 34, ly + 33); ctx.stroke();
@@ -648,17 +648,18 @@ export class Overlay {
   label(kind, t, a) {
     const ctx = this.ctx;
     if (kind === 'split') {
-      // the payoff ends side by side: a soft cream hairline on the seam, running a little past the
-      // disk at both ends, and each half named under it, hung off the seam at equal gaps
+      // the seam carries a soft cream hairline from the moment the wipe starts, following it, running a
+      // little past the disk at both ends; the halves are named once the seam has settled at the centre
+      const x = Math.min(1, effectsAt(t).teleSplit[0]) * 1920;
       ctx.save();
       const g = ctx.createLinearGradient(0, 280, 0, 820);
       g.addColorStop(0, rgba(COL.white, 0)); g.addColorStop(0.08, rgba(COL.white, 0.7)); g.addColorStop(0.92, rgba(COL.white, 0.7)); g.addColorStop(1, rgba(COL.white, 0));
-      ctx.globalAlpha = a;
-      for (const [w, al] of [[3.0, 0.25], [1.6, 0.6], [0.8, 1.0]]) { ctx.globalAlpha = a * al; ctx.fillStyle = g; ctx.fillRect(960 - w / 2, 280, w, 540); }
+      for (const [w, al] of [[3.0, 0.25], [1.6, 0.6], [0.8, 1.0]]) { ctx.globalAlpha = a * al; ctx.fillStyle = g; ctx.fillRect(x - w / 2, 280, w, 540); }
       ctx.restore();
-      this.lines.push({ pts: [[960, 300], [960, 800]], kind: 'split line', a });
-      this.text('sharp', 'label', 924, 880, a, 'right');
-      this.text('EHT resolution', 'label', 996, 880, a, 'left');
+      this.lines.push({ pts: [[x, 300], [x, 800]], kind: 'split line', a });
+      const na = a * smoothstep(97.8, 98.5, t);
+      this.text('sharp', 'label', 924, 880, na, 'right');
+      this.text('EHT resolution', 'label', 996, 880, na, 'left');
     }
   }
 }

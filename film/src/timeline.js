@@ -9,8 +9,8 @@ export const BEATS = [
   { id: 'hook', name: 'Hook', t0: 0, t1: 7, still: 3.6 },
   { id: 'title', name: 'Title', t0: 7, t1: 13, still: 10.2 },
   { id: 'gravity', name: 'Gravity bends light', t0: 13, t1: 30, still: 24.5 },
-  { id: 'photon', name: 'Photon sphere', t0: 30, t1: 46, still: 45.0 },
-  { id: 'isco', name: 'Innermost stable orbit', t0: 46, t1: 60, still: 55.5 },
+  { id: 'photon', name: 'Photon sphere', t0: 30, t1: 49, still: 46.5 },
+  { id: 'isco', name: 'Innermost stable orbit', t0: 49, t1: 60, still: 56.0 },
   { id: 'doppler', name: 'Doppler beaming', t0: 60, t1: 76, still: 64.5 },
   { id: 'close', name: 'Close orbit', t0: 76, t1: 90, still: 84.8 },
   { id: 'payoff', name: 'Payoff: M87*', t0: 90, t1: 105, still: 101.0 },
@@ -70,8 +70,8 @@ const CAM = [
   [49.2, 34.0, 38.0, 74, -13.0, 1.5, 0, 40, 5.2],
   [59.2, 31.0, 34.0, 88, -12.5, 1.5, 0, 40, 5.2],
   // doppler: almost edge-on, centred
-  [62.6, 24.0, 86.0, 92, 0, 9.1, 0, 40, 5.3],
-  [75.2, 22.0, 85.5, 102, 0, 8.6, 0, 40, 5.3],
+  [62.6, 24.0, 86.0, 92, 0, 9.9, 0, 40, 5.3],
+  [75.2, 22.0, 85.5, 102, 0, 9.4, 0, 40, 5.3],
   // close orbit: dive to 1.7 rs and look up along the edge of the shadow; closest at 86 s
   [80.0, 7.2, 82.0, 138, 0, 22, -4, 56, 3.6],
   [82.4, 3.7, 80.5, 166, 0, 60, -9, 78, 1.7],
@@ -119,7 +119,7 @@ const WIPE = [[60, 0], [67.2, 0], [69.2, 1], [73.6, 1], [75.6, 0], [76, 0]];
 const TELE = [[90, 0.67], [95.0, 0.67], [97.8, 0.5], [104.4, 0.5], [105.6, 1.05], [108, 1.05]];   // starts at the ring's right edge
 // the photon-sphere diagram interlude: the shot burns out to black completely (no second hole behind the
 // diagram) by raising the black point after tone mapping, so the darks go first and the hottest gas lingers
-const CRUSH = [[0, 0], [37.0, 0], [38.4, 1], [45.6, 1], [46.8, 0], [108, 0]];
+const CRUSH = [[0, 0], [37.0, 0], [38.4, 1], [48.0, 1], [49.2, 0], [108, 0]];
 
 // Brighter background sky on the dive: the static observer deep in the potential sees
 // starlight blueshifted (already in the shader); this extra gain keeps the lensed
@@ -174,25 +174,25 @@ export const CUES = [
   { t0: 17.4, t1: 22.6, kind: 'caption', text: 'You’re seeing the disk’s far side.', x: 1200, y: 214 },
   { t0: 23.0, t1: 28.6, kind: 'caption', text: 'Bent over the top, and under.', x: 1200, y: 214 },
 
-  { t0: 33.2, t1: 45.8, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
+  { t0: 33.2, t1: 48.2, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
   { t0: 34.4, t1: 42.4, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
-  { t0: 42.6, t1: 45.8, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
+  { t0: 42.6, t1: 48.2, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
 
   { t0: 49.4, t1: 59.2, kind: 'headline', text: 'The last stable orbit', x: 1200, y: 150 },
   { t0: 50.6, t1: 58.8, kind: 'caption', text: 'Inside 3 rₛ, matter plunges in.', x: 1200, y: 214 },
 
-  { t0: 62.6, t1: 66.6, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
-  { t0: 63.0, t1: 66.6, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
-  { t0: 66.6, t1: 73.0, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 150, align: 'center' },
-  { t0: 66.8, t1: 73.0, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
-  { t0: 73.0, t1: 76.4, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
+  { t0: 62.6, t1: 67.6, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
+  { t0: 63.0, t1: 67.6, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
+  { t0: 67.7, t1: 73.9, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 150, align: 'center' },
+  { t0: 67.9, t1: 73.9, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
+  { t0: 74.0, t1: 76.6, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
 
-  { t0: 81.3, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
-  { t0: 81.5, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
+  { t0: 81.3, t1: 86.8, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
+  { t0: 81.5, t1: 86.8, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
 
   { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
-  { t0: 94.6, t1: 99.6, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
-  { t0: 99.6, t1: 104.2, kind: 'caption', text: 'Like M87* (EHT 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
+  { t0: 96.4, t1: 100.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
+  { t0: 100.4, t1: 104.3, kind: 'caption', text: 'Like M87* (EHT 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
 
   // the 3 s end card: in by 105.4 s, held, then picture and type fade out together to black by 107.85 s
   { t0: 104.9, t1: 107.85, kind: 'title', text: 'FALL IN', x: 960, y: 812, align: 'center', fade: 0.55 },
@@ -204,21 +204,21 @@ export const CUES = [
 export const READOUTS = [
   { t0: 50.0, t1: 59.2, x: 1200, y: 985, lines: (t, c, P) => [`orbital speed  ${P.isco.v.toFixed(1)} c`] },
   // Doppler: one block over the sky on each side of the hole, tied to the side it describes
-  { t0: 63.2, t1: 66.6, x: 120, y: 460, kind: 'caption', leader: [250, 760], lines: () => ['approaching'] },
-  { t0: 63.2, t1: 66.6, x: 1800, y: 460, kind: 'caption', align: 'right', leader: [1660, 760], lines: () => ['receding'] },
+  { t0: 63.2, t1: 67.4, x: 120, y: 460, kind: 'caption', leader: [250, 780], lines: () => ['approaching'] },
+  { t0: 63.2, t1: 67.4, x: 1800, y: 460, kind: 'caption', align: 'right', leader: [1660, 780], lines: () => ['receding'] },
   // values at the closest point of the orbit (they do not tick while you read them)
-  { t0: 81.8, t1: 85.9, x: 120, y: 900, lines: (t, c, P) => [`time runs  ${((1 - P.clockRate(R_CLOSE)) * 100).toFixed(0)}% slower`, `starlight  ${(1 / P.clockRate(R_CLOSE)).toFixed(2)}× bluer`] },
+  { t0: 81.8, t1: 86.8, x: 120, y: 900, lines: (t, c, P) => [`time runs  ${((1 - P.clockRate(R_CLOSE)) * 100).toFixed(0)}% slower`, `starlight  ${(1 / P.clockRate(R_CLOSE)).toFixed(2)}× bluer`] },
 ];
 
 // Small labels pinned to screen positions
 export const LABELS = [
-  { t0: 98.0, t1: 104.2, kind: 'split' },   // the payoff's side-by-side: "sharp" | "EHT resolution"
+  { t0: 95.4, t1: 104.3, kind: 'split' },   // the payoff's side-by-side: "sharp" | "EHT resolution"
 ];
 
 // Side panels
 export const PANELS = [
   { id: 'rays', t0: 15.4, t1: 29.2 },
-  { id: 'photon', t0: 38.2, t1: 46.0 },
+  { id: 'photon', t0: 38.2, t1: 48.4 },
   { id: 'isco', t0: 49.2, t1: 59.4 },
 ];
 
@@ -231,7 +231,7 @@ export const HITS = {
   title: 7.0,
   gravity: 13.0,
   photon: 30.0,
-  isco: 46.0,
+  isco: 48.6,
   doppler: 60.0,
   wipeOff: 67.2,
   wipeOn: 73.6,

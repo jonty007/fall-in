@@ -151,7 +151,11 @@ vec2 diskLayer(float r, float ang, float lr, float age, float seed, float lod) {
   float ridge = 1.0 - abs(fbm3(pl, lod * 0.8) * 1.6);
   float lane = smoothstep(0.78, 0.97, ridge) * smoothstep(-0.1, 0.35, snoise(p1 * 1.3 + vec3(3.3, seed, 1.9)))
              * (1.0 - smoothstep(0.15, 0.6, lod * 1.6));
-  return vec2(big * 0.9 + mid * 0.35 + streak * 0.17 + wisp * 0.05 + knot * 0.45, lane);
+  // fine filaments, long along the orbit: invisible from afar (filtered by the footprint), they give
+  // the magnified near disk the same density of structure as the lensed arc
+  float fineW = 1.0 - smoothstep(0.03, 0.12, lod);
+  float fine = fineW > 0.0 ? fbm3(vec3(cs2 * 28.0, lr * 150.0 + seed * 9.1 + big * 3.0), lod * 6.0) * fineW : 0.0;
+  return vec2(big * 0.9 + mid * 0.35 + streak * 0.17 + wisp * 0.05 + knot * 0.45 + fine * 0.22, lane);
 }
 
 // returns rgb emission (already * alpha) and alpha

@@ -454,3 +454,24 @@ a dark keyline so they hold on the white-hot disk.
 
 Also: the end-card credit set at caption size (38 px); all photon-diagram rays solid (the escaping ray is lighter
 and thinner instead of dashed).
+
+### Round 11 — remaining findings and what was done
+
+1. **The photon diagram's finished three-outcome state was on screen for about a second.** → The interlude is
+   2.4 s longer: the labels arrive one after another ("falls in", "orbits, then leaves", "escapes", ≈ 0.7 s apart)
+   and the finished diagram holds ≈ 3 s; the shot then returns already in the ISCO framing (the textless approach
+   that followed is gone), so the ISCO beat starts at 0:49.
+2. **Captions announcing changes before the picture made them.** Round 10 asked for captions to lead their reveals;
+   round 11 found them too early. → Each caption now lands about a third of the way into the change it names
+   (Interstellar headline at 67.7 s in a 67.2–69.2 s morph, the return at 74.0 s in 73.6–75.6 s, the blur caption
+   at 96.4 s), and the payoff's seam hairline appears with the wipe and follows it.
+3. **The burn-out turned grey-beige highlights in a crimson smear.** → The burn now dims by luminance with each
+   pixel's colour kept, and what lingers cools as it goes (white → orange → deep ember → black); the red lean of
+   the darks in the grade is halved.
+4. **Soft near-side disk.** → A fine filament layer, long along the orbit, that only appears where the view is
+   magnified enough to resolve it (it is filtered away from afar), so the near disk carries the arc's density of
+   structure.
+5. **Close-orbit text too much for its time.** → Held to 86.8 s, into the silence (≈ 5 s with all lines up).
+
+Also: the Doppler shot tilted up another 0.8° for room above the arc; one stroke-weight system across the
+diagrams (paths 2.4–2.6 px, references 1.8 px); the ISCO legend swatch matches its path.
