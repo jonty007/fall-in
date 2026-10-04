@@ -10,6 +10,14 @@ gravitational redshift; the starfield is lensed by the same rays. The score is s
 * `DECISIONS.md` — every decision made along the way, including the review-round findings
 * `film/out/` — deliverables (stills, contact sheet, poster, preview, score) and, after you render, `film_16x9.mp4`
 
+**Status.** Everything except the full-quality film is rendered and in `film/out/`: one 1920×1080 still per beat
+(`stills/`), a contact sheet (`contact_sheet.jpg`, one frame every 2 s), a portrait poster (`poster.jpg`), a
+640×360 preview with the score (`preview_640x360.mp4`) and the score itself (`score.wav`, −14 LUFS, −1.5 dBTP).
+The 1920×1080 master is not in the repository: one full-quality frame takes 35 s to 5 minutes in this repository's
+GPU-less build container, so the film is meant to be rendered on your machine with `npm run render` (below).
+It went through 15 rounds of review by a fresh "art director" agent that never saw the code; every finding and
+fix is logged in `DECISIONS.md`.
+
 ## Render the film on your computer (GPU)
 
 Requirements: Node.js 18+ (tested on 22), a GPU with working WebGL2 in Chrome, ~6 GB free disk while rendering.
@@ -69,6 +77,10 @@ hashing, so the same `t` gives the same image on any machine.
 
 ## How it works
 
+* **Diagrams** (`film/src/overlay.js`) are traced with the same physics: the photon-sphere rays in u(φ) (at
+  b = √27 M (1 + 2.8 × 10⁻⁷) the ray really laps the sphere ≈ 1.9 times within 0.0013 M of r = 3M), the ISCO paths
+  as timelike geodesics. Every frame's text layer is checked by `film/scripts/layout.mjs` (no label touches a path
+  or another label; everything inside title-safe).
 * **Light paths** (`film/src/shaders/scene.js`). Each pixel's ray lies in a plane through the hole, where the photon
   orbit obeys `u'' = 3Mu² − u` (u = 1/r). It is integrated with RK4 in φ with adaptive steps (fine near the photon
   sphere); disk crossings and the escape direction are found exactly on the cubic Hermite interpolant of the RK4
