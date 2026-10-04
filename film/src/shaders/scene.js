@@ -180,8 +180,7 @@ vec4 diskSample(vec3 P, float r, float cosInc, float g, float lod) {
   // inner edge filtered with the pixel footprint (coverage), so thin lensed rings don't sparkle
   float edgeW = clamp(lod * r / 13.5, 0.03, 1.5);
   float inner = smoothstep(uRin - edgeW, uRin + edgeW, r);
-  float outer = 1.0 - smoothstep(uRout * 0.5, uRout, r);
-  outer *= outer;
+  float outer = 1.0 - smoothstep(uRout * 0.72, uRout, r);   // only the outer rim turns translucent
   // optically thick body (thin disks are), more translucent toward the outer edge
   float dens = inner * clamp(0.9 + 1.1 * n, 0.12, 1.8) * (1.0 - 0.25 * lane);
   float tau = 4.0 * dens / max(abs(cosInc), 0.08);
@@ -453,8 +452,8 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
           if (nh == 0) h0 = hh; else if (nh == 1) h1 = hh; else h2 = hh;
           nh++;
           // conservative opacity estimate from the radial envelope, for early exit only
-          float oe = 1.0 - smoothstep(uRout * 0.5, uRout, rc);
-          float env = smoothstep(uRin, uRin + 0.3, rc) * oe * oe;
+          float oe = 1.0 - smoothstep(uRout * 0.72, uRout, rc);
+          float env = smoothstep(uRin, uRin + 0.3, rc) * oe;
           transEst *= 1.0 - env * (1.0 - exp(-3.0 / max(abs(cosInc), 0.08)));
         }
       }

@@ -223,7 +223,7 @@ void main() {
   float n1 = rnd(uvec3(cell, fr * 3u + 1u)), n2 = rnd(uvec3(cell, fr * 3u + 2u));
   float n3 = rnd(uvec3(uvec2(gl_FragCoord.xy), fr * 3u + 7u)), n4 = rnd(uvec3(uvec2(gl_FragCoord.xy) + 911u, fr * 3u + 5u));
   float luma = dot(v, vec3(0.2126, 0.7152, 0.0722));
-  float amp = (0.012 + 0.02 * smoothstep(0.02, 0.3, luma) * (1.0 - 0.6 * smoothstep(0.55, 1.0, luma))) * uFade;
+  float amp = (0.016 + 0.02 * smoothstep(0.02, 0.3, luma) * (1.0 - 0.6 * smoothstep(0.55, 1.0, luma))) * uFade;
   float grain = (n1 + n2 - 1.0) * amp;
   float dither = (n3 + n4 - 1.0) / 255.0;
   v = v + grain * (0.6 + 0.4 * v) + dither;

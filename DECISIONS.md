@@ -318,3 +318,31 @@ one ISCO readout line ("orbital speed 0.5 c"); the gravity readout removed (too 
 orbit text held 5 s; star motion blur at a 90° shutter with long streaks faded further (they read as rain or
 scratches); star colours mostly F/A/B; star gain +30 %; the black floor raised to ≈ 2.3/255 with more grain so
 the encode will not band; the gravity FOV 34° → 36° so the hot side sits a little further inside the frame.
+
+### Round 5 — five worst findings and what was done
+
+1. **The close-orbit text stayed on screen over the next shots (1:28–1:32).** This was a real bug, not timing:
+   the cue ends at 85.9 s, but when the text layer was completely empty the 2D canvas could hand WebGL a stale
+   snapshot of the last frame that had text. → The overlay now reports when it drew nothing and the text pass is
+   skipped on those frames, so an empty frame can never show old text.
+2. **The photon-sphere diagram was a tangle.** → 1.3× larger and re-centred; the readout under it removed; the
+   neighbour rays moved to 0.9 and 1.15 × √27 M so the three approach paths are ≥ 25 px apart; the dashed photon
+   sphere is faint so the circling ray (3.2 px white, with a comet head while it laps) is what reads; the rays are
+   told apart by weight and dash and each is named, echoing the caption: "circles", "escapes" (dashed ember) and
+   "falls in" (ember, set inside the horizon next to where that ray ends). The label value "1.5 rₛ" comes from the
+   numerical photon-sphere search.
+3. **Three Doppler multipliers a first-time viewer cannot reconcile (81×, 4×, 20×).** → One number: "Approaching
+   side: up to 81× brighter than receding." The side labels are just "approaching" / "receding", and their leaders
+   end on a dot in the dark sky just above the disk instead of vanishing into it.
+4. **Ghost arcs showing through the near side of the disk.** Round 3's outer taper made the outer half of the disk
+   translucent, so the lower photon ring and secondary images showed through it while the texture streamed past.
+   → Only the outer rim (r > 0.72 r_out) turns translucent now.
+5. **Units and readouts too small.** → Subscripts and superscripts at 76 % of the base size (was 64 %); readouts
+   36 px; duplicated and over-precise numbers removed (the photon readout is gone; ISCO "0.5 c").
+
+Also from round 5: the payoff ring is smaller (camera 560–620 M) so the captions and half labels have clear space;
+second payoff caption "Like M87* (EHT, 2019): brighter at the bottom." (the render's bottom half is measurably
+brighter, as in the 2017 EHT image); the right-hand column starts at x = 1200 in both the gravity and ISCO beats,
+and no diagram passes x = 1800; the gravity rays are 3 px; the ISCO ring label moved to where the spiral is
+furthest inside it; grain in the blacks raised a little. Not changed: the three type families. The brief asks
+for two @fontsource typefaces plus a monospace, and the mono is kept only for the numeric readouts.

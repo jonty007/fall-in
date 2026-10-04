@@ -73,7 +73,7 @@ window.seek = async (t, opts = {}) => {
   const st = frameState(t);
   if (!noUi) { overlay.draw(t, st.cam); st.render.textMasks = overlay.textMasks(); }
   window.overlayIssues = overlay.issues;
-  if (!uiOnly) await renderer.render(st.render, { tileRows: opts.tileRows ?? 135, ui: noUi ? null : uiCanvas });
+  if (!uiOnly) await renderer.render(st.render, { tileRows: opts.tileRows ?? 135, ui: noUi || overlay.empty ? null : uiCanvas });
   // let the compositor pick up both canvases
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   return st.cam;

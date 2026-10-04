@@ -166,19 +166,19 @@ export const CUES = [
   { t0: 7.0, t1: 12.3, kind: 'title', text: 'FALL IN', x: 960, y: 968, align: 'center' },
 
   // gravity and ISCO: hole on the left, the explanation in a right-hand column over sky
-  { t0: 15.6, t1: 29.0, kind: 'headline', text: 'Gravity bends light', x: 1250, y: 150 },
-  { t0: 17.4, t1: 22.6, kind: 'caption', text: 'You’re seeing the disk’s far side.', x: 1250, y: 214 },
-  { t0: 23.0, t1: 28.6, kind: 'caption', text: 'Bent over the top, and under.', x: 1250, y: 214 },
+  { t0: 15.6, t1: 29.0, kind: 'headline', text: 'Gravity bends light', x: 1200, y: 150 },
+  { t0: 17.4, t1: 22.6, kind: 'caption', text: 'You’re seeing the disk’s far side.', x: 1200, y: 214 },
+  { t0: 23.0, t1: 28.6, kind: 'caption', text: 'Bent over the top, and under.', x: 1200, y: 214 },
 
   { t0: 33.2, t1: 44.8, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
   { t0: 34.4, t1: 39.2, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
   { t0: 39.8, t1: 44.8, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
 
-  { t0: 49.4, t1: 59.2, kind: 'headline', text: 'The last stable orbit', x: 1180, y: 150 },
-  { t0: 50.6, t1: 58.8, kind: 'caption', text: 'Inside 3 rₛ, matter plunges in.', x: 1180, y: 214 },
+  { t0: 49.4, t1: 59.2, kind: 'headline', text: 'The last stable orbit', x: 1200, y: 150 },
+  { t0: 50.6, t1: 58.8, kind: 'caption', text: 'Inside 3 rₛ, matter plunges in.', x: 1200, y: 214 },
 
   { t0: 62.6, t1: 67.0, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
-  { t0: 63.0, t1: 67.0, kind: 'caption', text: (P) => `Gas coming toward you: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter.`, x: 960, y: 214, align: 'center' },
+  { t0: 63.0, t1: 67.0, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
   { t0: 69.0, t1: 73.6, kind: 'headline', text: 'How Interstellar showed it', x: 960, y: 150, align: 'center' },
   { t0: 69.4, t1: 73.6, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
 
@@ -187,7 +187,7 @@ export const CUES = [
 
   { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
   { t0: 94.6, t1: 99.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
-  { t0: 99.8, t1: 104.2, kind: 'caption', text: 'The real M87* (2019): brighter below too.', x: 960, y: 214, align: 'center' },
+  { t0: 99.8, t1: 104.2, kind: 'caption', text: 'Like M87* (EHT, 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
 
   { t0: 105.4, t1: 108.2, kind: 'title', text: 'FALL IN', x: 960, y: 760, align: 'center', fade: 0.5 },
   { t0: 105.7, t1: 108.2, kind: 'credit', text: 'Made by @vivekst1 with Claude Opus 5.5 from one prompt', x: 960, y: 858, align: 'center', fade: 0.5 },
@@ -196,11 +196,10 @@ export const CUES = [
 // Readout blocks (mono). `lines` is a function of (t, cam, phys) so physics values
 // come from formulas at render time.
 export const READOUTS = [
-  { t0: 38.6, t1: 44.8, x: 120, y: 930, lines: (t, c, P) => [`photon orbit  ${(P.ph.r / 2).toFixed(3)} rₛ`, `shadow edge   ${(P.ph.bc / 2).toFixed(3)} rₛ`] },
-  { t0: 50.0, t1: 59.2, x: 1180, y: 960, lines: (t, c, P) => [`orbital speed  ${P.isco.v.toFixed(1)} c`] },
+  { t0: 50.0, t1: 59.2, x: 1200, y: 960, lines: (t, c, P) => [`orbital speed  ${P.isco.v.toFixed(1)} c`] },
   // Doppler: one block over the sky on each side of the hole, tied to the side it describes
-  { t0: 63.2, t1: 67.0, x: 120, y: 380, leader: [330, 640], lines: (t, c, P) => ['approaching', `≈ ${Math.round(Math.pow(P.gApp, 4))}× brighter`] },
-  { t0: 63.2, t1: 67.0, x: 1800, y: 380, align: 'right', leader: [1600, 650], lines: (t, c, P) => ['receding', `≈ ${Math.round(Math.pow(P.gRec, -4))}× dimmer`] },
+  { t0: 63.2, t1: 67.0, x: 120, y: 420, leader: [300, 610], lines: () => ['approaching'] },
+  { t0: 63.2, t1: 67.0, x: 1800, y: 420, align: 'right', leader: [1620, 615], lines: () => ['receding'] },
   { t0: 81.4, t1: 85.9, x: 120, y: 900, lines: (t, c, P) => [`distance   ${(c.r / 2).toFixed(2)} rₛ`, `time runs  ${((1 - P.clockRate(c.r)) * 100).toFixed(0)}% slower`, `starlight  ${(1 / P.clockRate(c.r)).toFixed(2)}× bluer`] },
 ];
 
