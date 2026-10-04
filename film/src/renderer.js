@@ -160,6 +160,7 @@ export class Renderer {
     gl.uniform1f(u.uStarGain, s.starGain);
     gl.uniform1f(u.uGalaxyGain, s.galaxyGain);
     gl.uniform1f(u.uSpin, s.spin);
+    gl.uniform3fv(u.uOmega, s.omega || [0, 0, 0]);
     this.bindTex(0, this.lut, u.uLut);
     gl.bindVertexArray(this.vao);
     const rows = tileRows > 0 ? tileRows : this.h;
@@ -253,7 +254,10 @@ export class Renderer {
       this.bindTex(1, bloomTex, u.uBloom);
       this.bindTex(2, this.teleA.tex, u.uTele);
       this.bindTex(3, this.thinB.tex, u.uThin);
+      this.bindTex(4, this.sceneT.tex2, u.uDisk);
+      this.bindTex(5, this.sceneT.tex3, u.uThinRaw);
       gl.uniform2f(u.uRes, this.w, this.h);
+      gl.uniform2fv(u.uCompress, s.compress || [1, 1]);
       gl.uniform1f(u.uExposure, s.exposure);
       gl.uniform1f(u.uBloomStrength, s.bloomStrength);
       gl.uniform4fv(u.uTeleSplit, s.teleSplit);

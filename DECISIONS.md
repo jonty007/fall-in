@@ -236,3 +236,51 @@ Also from round 2: title cards re-set in Cormorant Garamond 500 with moderate tr
 spaced geometric capitals; end card re-framed so the dim ring sits above the title and the credit runs over
 black; close-orbit star gain lowered (×3 instead of ×5) and its galaxy haze reduced; a soft scrim under the title
 subdues lensed star arcs near the letters; repeated "solved from the geodesic equation" lines removed.
+
+### Round 3 — five worst findings and what was done
+
+1. **Text on the brightest part of the disk** (ISCO readout ≈ 3.5:1 on cream streaks; Doppler readout on the hot
+   near side over a scrim with a visible vertical edge; gravity headline on the upper arc). → The shots were
+   recomposed around the text instead of darkening under it: in the gravity and ISCO beats the hole moves to
+   the left (gravity FOV 27° → 34°, yaw −12°; ISCO yaw −13°) and every word and diagram sits in a right-hand
+   column over sky or over the dim, receding side, under one wide soft scrim (no rectangles). The Doppler
+   readout became two short blocks in the sky on either side of the hole, on the side each describes
+   ("approaching / light 1.41× bluer", "receding / light 2.1× redder"). All text is full warm white.
+2. **Diagrams crossing their own labels; a "ball of string" ISCO inset.** → Every frame now runs a layout check
+   (`film/scripts/layout.mjs`, text layer only, every 0.25 s): any label box touched by a drawn path, two text
+   blocks overlapping, or text outside a 30 px safe area is reported; the film is clean. Leaders stop 8 px from
+   the text box at its nearest edge (they used to end inside centred labels). Gravity diagram moved above the
+   real disk's plane so the two disks never line up; under-rays chosen so the "far side" leader is clear. Photon
+   interlude: the shot fades out completely (no second hole, no stray arc), "horizon" is named inside its
+   circle, the photon sphere from its free left side, and the circling ray gets "circles, then escapes". ISCO:
+   two paths only, at a larger scale — a closed circular orbit at 4.5 rₛ ("stays in orbit") and a spiral from
+   2.95 rₛ that falls in after ≈ 1.3 turns ("spirals in", in the path's ember colour), one dashed 3 rₛ ring.
+3. **The payoff made our render read as the M87\* photograph; the frame was all blur.** → The blur wipe now stops
+   at the centre: the payoff ends side by side, sharp on the left, EHT resolution on the right, with a still
+   hairline seam and two plain labels. The caption is "Our render, blurred to EHT resolution." throughout;
+   M87\* appears only in the mono line, which starts "M87\* (EHT 2019, not shown):". The moving wipe dividers
+   (a translucent motion-blurred bar) were removed from the Doppler and telescope wipes; the image's own soft
+   edge is the wipe.
+4. **Exposure and grade not locked: cream wash in some beats, mud in others, flat clipped patches.** → Two
+   changes to the image pipeline. (a) Highlight compression of the disk light only (sky untouched): above a
+   pivot its luminance is compressed in log space (power 0.6) with chromaticity kept, so the Doppler-bright side
+   stays textured yellow-white instead of clipping — the physical range across the disk is ≈ 12 stops. (b) A
+   warm-only mid-tone saturation of +85 % (was +28 % for every hue), so the dim, cooler gas reads as ember
+   orange rather than brown, and starlight stays pale. Exposures re-measured: no clipped white in any beat, p99
+   ≈ 0.75–0.92, mean ≈ 20–50 (0–255) for disk-filled frames (ISCO 8.4 → 5.2, photon ×0.8, close orbit ×1.4 so
+   the blueshifted band reads white-hot, not grey). The end card no longer dims the whole picture (which made it
+   mud brown with a raised black): the ring sits small, whole and crisp above the title.
+5. **Disk texture looked like a Photoshop filter** (radial zoom / twirl, wood grain, brushed ribbon). → Shear
+   lifetime of each turbulence layer cut from 210 M to 120 M (stretch near the ISCO bounded at a few : 1), a
+   mid-scale clump layer elongated ≈ 2 : 1 along the orbit, sparse thin dark filaments gated by the clumps
+   (cooler and more transparent gas), stronger temperature contrast (hot knots read yellow-white, lanes deep
+   orange), and an outer rim that tapers smoothly instead of being cut ragged by the noise.
+
+Also from round 3: lensed stars are drawn with motion blur (180° shutter). As the camera circles the hole the
+lens map turns with it, so the sky seen through a pixel turns by the camera's angular step; mapped through the
+exact lens Jacobian this gives each star image's streak, which is drawn as a swept Gaussian (flux kept) — near
+the Einstein ring stars now streak instead of strobing. The brightest stars get a soft glow. Grain raised to
+≈ 1–1.5 % in the mid-tones. Copy: "Gas coming toward you: up to 81× brighter." (81 from (g₊/g₋)⁴, computed);
+"Doppler left out on purpose, per Thorne’s team."; ISCO readout "orbital speed 0.500 c / its clocks run 29% slow"
+(√(1 − 3M/r) at the ISCO, computed). The contact sheet's timestamps moved to a band under each tile (they had
+covered the bottom-left readouts, which the reviewer read as a "decode" glitch).

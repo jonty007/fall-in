@@ -27,6 +27,7 @@ uniform float uDiskGain;
 uniform float uStarGain;
 uniform float uGalaxyGain;
 uniform float uSpin;        // +1 / -1 direction of disk rotation about +y
+uniform vec3  uOmega;       // the camera's rotation about the hole while the shutter is open (axis * angle, rad)
 uniform sampler2D uLut;     // row 0: blackbody, row 1: disk temperature profile
 
 layout(location = 0) out vec4 fragColor;
@@ -116,7 +117,8 @@ float fbm3(vec3 p, float lod) {
   return s / n;
 }
 
-float diskLayer(float r, float ang, float lr, float age, float seed, float lod) {
+// x: brightness/density field, y: dark filaments (thin cool lanes between the clumps)
+vec2 diskLayer(float r, float ang, float lr, float age, float seed, float lod) {
   float Om = pow(r, -1.5);
   float a = ang - uSpin * Om * age;
   vec2 cs = vec2(cos(a), sin(a));
@@ -124,6 +126,10 @@ float diskLayer(float r, float ang, float lr, float age, float seed, float lod) 
   vec3 p1 = vec3(cs * 4.6, lr * 4.4 + seed * 7.31);
   float warp = snoise(p1 * 0.8 + vec3(seed));
   float big = fbm3(p1 + vec3(warp * 0.6, -warp * 0.4, warp * 0.3), lod * 0.35);
+  // mid-scale clumps: the cellular, broken-up look of turbulent gas between the arms
+  // (elongated ~2:1 along the orbit before any shear)
+  vec3 pm = vec3(cs * 6.5, lr * 13.0 + seed * 2.9 + big * 0.7);
+  float mid = fbm3(pm, lod * 0.9);
   // streaks: stretched along the orbit, displaced by the clumps
   float sa = a + 0.55 * lr;  // gentle trailing spiral pitch for the fine structure
   vec2 cs2 = vec2(cos(sa), sin(sa));
@@ -133,37 +139,52 @@ float diskLayer(float r, float ang, float lr, float age, float seed, float lod) 
   vec3 q = vec3(cs2 * 9.0, lr * 22.0 + seed * 5.3 + big * 2.0);
   float wisp = snoise(q) * (1.0 - smoothstep(0.2, 0.9, lod * 2.4));
   // sparse hot knots riding the flow
-  float knot = smoothstep(0.5, 0.9, snoise(p1 * 2.3 + vec3(9.1, 2.7, seed))) * (1.0 - smoothstep(0.2, 0.9, lod * 1.5));
-  return big * 1.0 + streak * 0.26 + wisp * 0.1 + knot * 0.55;
+  float knot = smoothstep(0.45, 0.85, snoise(p1 * 2.3 + vec3(9.1, 2.7, seed))) * (1.0 - smoothstep(0.2, 0.9, lod * 1.5));
+  // dark filaments: ridges of a warped mid-scale field, faded out before they alias
+  // (long and thin along the flow, and sparse: only the strongest ridges, gated by the clumps)
+  vec3 pl = vec3(cs * 3.6, lr * 15.0 + seed * 4.7 + warp * 0.6);
+  float ridge = 1.0 - abs(snoise(pl));
+  float lane = smoothstep(0.90, 0.985, ridge) * smoothstep(-0.1, 0.35, snoise(p1 * 1.3 + vec3(3.3, seed, 1.9)))
+             * (1.0 - smoothstep(0.15, 0.6, lod * 2.2));
+  return vec2(big * 0.9 + mid * 0.4 + streak * 0.17 + wisp * 0.07 + knot * 0.7, lane);
 }
 
 // returns rgb emission (already * alpha) and alpha
 vec4 diskSample(vec3 P, float r, float cosInc, float g, float lod) {
   float ang = atan(P.z, P.x);
   float lr = log(r);
-  const float PERIOD = 210.0;
+  // each turbulence layer is sheared for at most PERIOD (in M) before it is cross-faded out,
+  // which bounds the stretch near the ISCO to a few : 1 (real turbulence is regenerated, not
+  // wound up indefinitely)
+  const float PERIOD = 120.0;
   float ph = uTime / PERIOD;
-  float n = 0.0, wsum2 = 0.0;
+  vec2 n2 = vec2(0.0);
+  float wsum2 = 0.0, wsum = 0.0;
   for (int k = 0; k < 3; k++) {
     float pk = ph + float(k) / 3.0;
     float cyc = floor(pk);
     float fr = pk - cyc;
     float w = sin(3.14159265 * fr);           // smooth window; three layers overlap
     w *= w;
-    n += w * diskLayer(r, ang, lr, fr * PERIOD, cyc * 3.0 + float(k), lod);
+    vec2 l = diskLayer(r, ang, lr, fr * PERIOD, cyc * 3.0 + float(k), lod);
+    n2 += w * l;
     wsum2 += w * w;
+    wsum += w;
   }
-  n *= inversesqrt(max(wsum2, 1e-4)) * 0.82; // keep the texture's contrast constant through the cross-fades
-  // radial structure: soft outer fade, crisp ISCO edge
+  float n = n2.x * inversesqrt(max(wsum2, 1e-4)) * 0.8; // keep the texture's contrast constant through the cross-fades
+  float lane = n2.y / max(wsum, 1e-4);
+  // radial structure: crisp ISCO edge, smooth outer taper (independent of the noise, so the
+  // rim is soft rather than ragged)
   // inner edge filtered with the pixel footprint (coverage), so thin lensed rings don't sparkle
   float edgeW = clamp(lod * r / 13.5, 0.03, 1.5);
   float inner = smoothstep(uRin - edgeW, uRin + edgeW, r);
-  float outer = 1.0 - smoothstep(uRout * 0.55, uRout, r);
-  // optically thick body (thin disks are), wispy and translucent toward the outer edge
-  float dens = inner * outer * clamp(0.85 + 1.3 * n, 0.08, 1.8);
+  float outer = 1.0 - smoothstep(uRout * 0.5, uRout, r);
+  outer *= outer;
+  // optically thick body (thin disks are), more translucent toward the outer edge
+  float dens = inner * clamp(0.9 + 1.1 * n, 0.12, 1.8) * (1.0 - 0.6 * lane);
   float tau = 4.0 * dens / max(abs(cosInc), 0.08);
-  float alpha = 1.0 - exp(-tau);
-  float T = uTpeak * diskProfile(r) * (0.9 + 0.22 * clamp(n, -1.0, 1.0)) * g;
+  float alpha = (1.0 - exp(-tau)) * outer;
+  float T = uTpeak * diskProfile(r) * (0.9 + 0.26 * clamp(n, -1.0, 1.0)) * (1.0 - 0.16 * lane) * g;
   vec3 em = blackbody(T) * uDiskGain;
   return vec4(em * alpha, alpha);
 }
@@ -226,6 +247,18 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   float det = a11 * a22 - a12 * a12;
   vec2 rhs = vec2(dot(L.dx, delta), dot(L.dy, delta));
   vec2 pp = vec2(a22 * rhs.x - a12 * rhs.y, a11 * rhs.y - a12 * rhs.x) / det * L.scale;   // offset in pixels
+  // motion blur (180-degree shutter): as the camera circles the hole the lens map turns with it,
+  // so the sky seen through this pixel turns by uOmega; through the local Jacobian that moves the
+  // star's image by mv pixels. Near the Einstein ring the magnification makes this a streak; the
+  // star is drawn as a Gaussian swept along it (flux conserved), so it streaks instead of strobing.
+  vec3 dD = cross(uOmega, D);
+  vec2 rv = vec2(dot(L.dx, dD), dot(L.dy, dD));
+  vec2 mv = vec2(a22 * rv.x - a12 * rv.y, a11 * rv.y - a12 * rv.x) / det * L.scale;
+  float ml = length(mv);
+  if (ml > 48.0) mv *= 48.0 / ml;               // caustics: the Jacobian is near-singular; cap the streak
+  ml = min(ml, 48.0);
+  float tc = ml > 1e-3 ? clamp(-dot(pp, mv) / (ml * ml), -0.5, 0.5) : 0.0;
+  pp += tc * mv;
   // brightness: number counts N(<m) ~ 10^(0.6 m)
   m = clamp(mMax + log(max(rnd2.x, 1e-6)) / (0.6 * log(10.0)), mMin, mMax);
   float flux = pow(10.0, -0.4 * m);
@@ -239,8 +272,9 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, 0.85);
   float r2 = dot(pp, pp);
   const float SIG = 1.25;                       // point-spread in render pixels (~0.6 px after the 2x downscale)
-  float core = exp(-0.5 * r2 / (SIG * SIG)) / (2.0 * PI * SIG * SIG);
-  float halo = exp(-0.5 * r2 / 16.0) / (2.0 * PI * 16.0) * 0.08 * smoothstep(1.5, -1.0, m);
+  float core = exp(-0.5 * r2 / (SIG * SIG)) / (2.0 * PI * SIG * SIG) / (1.0 + ml / (2.5066 * SIG));
+  // the few brightest stars get a soft glow (lens scatter), so the field has a hierarchy
+  float halo = exp(-0.5 * r2 / 36.0) / (2.0 * PI * 36.0) * 0.16 * smoothstep(2.0, -1.0, m) / (1.0 + ml / 15.0);
   float area = max(L.area / (L.scale * L.scale), 1e-16);   // solid angle per render pixel after lensing
   // brightness normalised to a 1080p pixel of the current lens, so stars look the same at any zoom
   float ref = 2.0 * uTanHalfFov / 1080.0;
@@ -416,8 +450,9 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
           if (nh == 0) h0 = hh; else if (nh == 1) h1 = hh; else h2 = hh;
           nh++;
           // conservative opacity estimate from the radial envelope, for early exit only
-          float env = smoothstep(uRin, uRin + 0.3, rc) * (1.0 - smoothstep(uRout * 0.55, uRout, rc));
-          transEst *= exp(-3.0 * env / max(abs(cosInc), 0.08));
+          float oe = 1.0 - smoothstep(uRout * 0.5, uRout, rc);
+          float env = smoothstep(uRin, uRin + 0.3, rc) * oe * oe;
+          transEst *= 1.0 - env * (1.0 - exp(-3.0 / max(abs(cosInc), 0.08)));
         }
       }
       nextCross += PI;

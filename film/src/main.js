@@ -16,11 +16,22 @@ for (const c of [glCanvas, uiCanvas]) {
 const renderer = new Renderer(glCanvas);
 const overlay = new Overlay(uiCanvas);
 
+// look-dev only: ?ev=-1 renders one stop darker (never set by the render scripts)
+const EV = Math.pow(2, Number(new URLSearchParams(location.search).get('ev') || 0));
+const LOOKSAT = Number(new URLSearchParams(location.search).get('sat') || 0.85);
+
 export function frameState(t) {
   const cam = cameraAt(t);
   const fx = effectsAt(t);
   const pos = sph(cam.r, cam.incl, cam.az);
   const basis = lookBasis(pos, { yaw: cam.yaw, pitch: cam.pitch, roll: cam.roll });
+  // the camera's rotation about the hole during a 180-degree shutter (for the stars' motion blur)
+  const h = 0.25 / FPS;
+  const pa = (() => { const c = cameraAt(t - h); return sph(c.r, c.incl, c.az); })();
+  const pb = (() => { const c = cameraAt(t + h); return sph(c.r, c.incl, c.az); })();
+  const cr = [pa[1] * pb[2] - pa[2] * pb[1], pa[2] * pb[0] - pa[0] * pb[2], pa[0] * pb[1] - pa[1] * pb[0]];
+  const crn = Math.hypot(...cr), ang = Math.atan2(crn, pa[0] * pb[0] + pa[1] * pb[1] + pa[2] * pb[2]);
+  const omega = crn > 0 ? cr.map((v) => (v / crn) * ang) : [0, 0, 0];
   // telescope blur: EHT resolution (~20 µas) relative to the M87* ring (42 µas)
   // applied to our ring (2 x 1.04 x sqrt(27) M across), as a Gaussian sigma in device pixels
   const ringM = 2 * 1.04 * Math.sqrt(27);
@@ -35,15 +46,16 @@ export function frameState(t) {
       diskTime: fx.diskTime,
       tPeak: 4500, rIn: 6, rOut: 30,
       wipe: fx.wipe,
-      diskGain: 1, starGain: fx.starBoost, galaxyGain: 0.00035 * Math.pow(fx.starBoost, 0.7), spin: 1,
-      exposure: cam.exposure * fx.dim,
+      diskGain: 1, starGain: fx.starBoost, galaxyGain: 0.00035 * Math.pow(fx.starBoost, 0.7), spin: 1, omega,
+      exposure: cam.exposure * fx.dim * EV,
       bloomThreshold: 2.4, bloomStrength: 0.12,
       teleSplit: fx.teleSplit, teleSigmaPx,
       fade: fx.fade,
       frame: Math.round(t * FPS),
       grainPx: dpr,
       vignette: 0.22,
-      look: [1, 1, 1],
+      look: [1, LOOKSAT, 1],
+      compress: [0.35, 0.6],
       scrims: scrimsAt(t),
     },
   };
@@ -52,11 +64,15 @@ export function frameState(t) {
 window.duration = DURATION;
 window.fps = FPS;
 window.rendererName = renderer.rendererName;
+const query = new URLSearchParams(location.search);
+const noUi = query.has('noui');       // picture only, for exposure measurements
+const uiOnly = query.has('uionly');   // text and diagrams only, over black, for layout checks
+if (uiOnly) uiCanvas.style.display = 'block';
 window.seek = async (t, opts = {}) => {
   const st = frameState(t);
-  const noUi = new URLSearchParams(location.search).has('noui');   // for exposure measurements
   if (!noUi) overlay.draw(t, st.cam);
-  await renderer.render(st.render, { tileRows: opts.tileRows ?? 135, ui: noUi ? null : uiCanvas });
+  window.overlayIssues = overlay.issues;
+  if (!uiOnly) await renderer.render(st.render, { tileRows: opts.tileRows ?? 135, ui: noUi ? null : uiCanvas });
   // let the compositor pick up both canvases
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   return st.cam;
@@ -73,5 +89,5 @@ await document.fonts.ready;
 window.ready = true;
 
 // viewing aid: ?t=42 shows that moment (the renderer itself always calls seek explicitly)
-const qt = new URLSearchParams(location.search).get('t');
+const qt = query.get('t');
 if (qt !== null) window.seek(Number(qt));

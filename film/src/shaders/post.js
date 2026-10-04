@@ -92,7 +92,10 @@ uniform sampler2D uScene;
 uniform sampler2D uBloom;
 uniform sampler2D uTele;
 uniform sampler2D uThin;
+uniform sampler2D uDisk;     // disk light only (with the raw thin rings)
+uniform sampler2D uThinRaw;  // the raw thin rings (before softening)
 uniform vec2  uRes;
+uniform vec2  uCompress;     // highlight compression of the disk light: x pivot (exposed units), y power above it
 uniform float uExposure;
 uniform float uBloomStrength;
 uniform vec4  uTeleSplit;    // x: split position (0..1), y: softness, z: amount (0 = off)
@@ -102,7 +105,7 @@ uniform float uGrainPx;      // device pixels per output pixel (grain cell size)
 uniform float uVignette;
 uniform vec4  uScrim[3];    // soft darkening behind text: rect in uv (x0, y0, x1, y1)
 uniform float uScrimK[3];
-uniform vec3  uLook;        // x: AgX look power, y: saturation, z: 1 = ACES (Hill fit) instead of AgX
+uniform vec3  uLook;        // x: AgX look power, y: mid-tone saturation boost, z: 1 = ACES (Hill fit) instead of AgX
 
 // AgX (Troy Sobotka), polynomial sigmoid fit by Benjamin Wrensch
 vec3 agxContrast(vec3 x) {
@@ -151,12 +154,26 @@ uint pcg(uint v) {
 }
 float rnd(uvec3 p) { return float(pcg(p.x + pcg(p.y + pcg(p.z)))) * (1.0 / 4294967296.0); }
 
+// The disk spans ~12 stops (Doppler beaming x the radial temperature fall-off); above the pivot its
+// luminance is compressed in log space with chromaticity kept, so the hot, approaching side stays a
+// textured yellow-white instead of a flat clipped patch. Stars and sky are left untouched.
+vec3 compressHi(vec3 c) {
+  float L = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  if (L <= uCompress.x || uCompress.y >= 1.0) return c;
+  return c * (uCompress.x * pow(L / uCompress.x, uCompress.y) / L);
+}
+
 void main() {
-  vec3 col = (texture(uScene, vUv).rgb + texture(uThin, vUv).rgb) * uExposure;
+  vec3 thinSoft = texture(uThin, vUv).rgb;
+  vec3 diskRaw = texture(uDisk, vUv).rgb;
+  vec3 thinRaw = texture(uThinRaw, vUv).rgb;
+  vec3 diskC = max(diskRaw - thinRaw, 0.0) + thinSoft;
+  vec3 skyC = max(texture(uScene, vUv).rgb - (diskRaw - thinRaw), 0.0);
+  vec3 col = compressHi(diskC * uExposure) + skyC * uExposure;
   float tele = 0.0;
   if (uTeleSplit.z > 0.0) {
     tele = smoothstep(uTeleSplit.x - uTeleSplit.y, uTeleSplit.x + uTeleSplit.y, vUv.x) * uTeleSplit.z;
-    col = mix(col, texture(uTele, vUv).rgb, tele);
+    col = mix(col, compressHi(texture(uTele, vUv).rgb), tele);
   }
   col += texture(uBloom, vUv).rgb * uBloomStrength * (1.0 - tele);
 
@@ -179,10 +196,12 @@ void main() {
   vec3 v = (uLook.z > 0.5 ? aces(col) : agx(col));
   // grade: richer ember in the mid-tones, whites left white
   float lumaG = dot(v, vec3(0.2126, 0.7152, 0.0722));
-  float satW = smoothstep(0.02, 0.25, lumaG) * (1.0 - smoothstep(0.6, 0.95, lumaG));
-  v = clamp(lumaG + (v - lumaG) * (1.0 + 0.28 * satW), 0.0, 1.0);
+  float satW = smoothstep(0.0, 0.12, lumaG) * (1.0 - smoothstep(0.55, 0.95, lumaG));
+  // warm hues only: the disk's ember gets richer, starlight stays a pale blue-white
+  float warm = smoothstep(0.0, 0.08, v.r - v.b);
+  v = clamp(lumaG + (v - lumaG) * (1.0 + uLook.y * satW * warm), 0.0, 1.0);
   // a filmic black: lifted by ~1.5/255 so grain lives in the shadows too
-  v = (v * (1.0 - 0.006) + 0.006) * uFade;
+  v = v * (1.0 - 0.006) * uFade + 0.006 * min(uFade * 3.0, 1.0);
 
   // grain: luminance-weighted, one value per output pixel so it survives the 2x downscale,
   // plus +-1 LSB triangular dither everywhere against banding
@@ -191,7 +210,7 @@ void main() {
   float n1 = rnd(uvec3(cell, fr * 3u + 1u)), n2 = rnd(uvec3(cell, fr * 3u + 2u));
   float n3 = rnd(uvec3(uvec2(gl_FragCoord.xy), fr * 3u + 7u)), n4 = rnd(uvec3(uvec2(gl_FragCoord.xy) + 911u, fr * 3u + 5u));
   float luma = dot(v, vec3(0.2126, 0.7152, 0.0722));
-  float amp = (0.005 + 0.013 * smoothstep(0.02, 0.3, luma) * (1.0 - 0.6 * smoothstep(0.55, 1.0, luma))) * uFade;
+  float amp = (0.008 + 0.02 * smoothstep(0.02, 0.3, luma) * (1.0 - 0.6 * smoothstep(0.55, 1.0, luma))) * uFade;
   float grain = (n1 + n2 - 1.0) * amp;
   float dither = (n3 + n4 - 1.0) / 255.0;
   v = v + grain * (0.6 + 0.4 * v) + dither;

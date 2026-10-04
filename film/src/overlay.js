@@ -1,6 +1,6 @@
 // Text and diagram layer: a 2D canvas above the WebGL canvas, drawn in a
 // 1920x1080 design space at device resolution. Never blurred, never graded.
-import { CUES, READOUTS, PANELS, LABELS, smoothstep, smootherstep, effectsAt } from './timeline.js';
+import { CUES, READOUTS, PANELS, LABELS, smoothstep, smootherstep } from './timeline.js';
 import * as P from './physics.js';
 
 const COL = {
@@ -13,16 +13,16 @@ const rgba = (hex, a) => {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
 
-// all text is warm white; hierarchy comes from typeface, size and opacity
+// all text is warm white; hierarchy comes from typeface and size (diagram labels may take
+// the colour of the path they name)
 const FONTS = {
   question: { family: 'Cormorant Garamond', style: 'italic', weight: 400, size: 70, spacing: 0.01, alpha: 1 },
   headline: { family: 'Cormorant Garamond', style: 'normal', weight: 500, size: 64, spacing: 0.01, alpha: 1 },
-  caption: { family: 'Jost', style: 'normal', weight: 400, size: 38, spacing: 0.015, alpha: 0.94 },
+  caption: { family: 'Jost', style: 'normal', weight: 400, size: 38, spacing: 0.015, alpha: 1 },
   title: { family: 'Cormorant Garamond', style: 'normal', weight: 500, size: 150, spacing: 0.14, alpha: 1 },
-  credit: { family: 'Jost', style: 'normal', weight: 400, size: 34, spacing: 0.03, alpha: 0.86 },
-  mono: { family: 'IBM Plex Mono', style: 'normal', weight: 400, size: 34, spacing: 0, alpha: 0.82 },
-  cite: { family: 'Jost', style: 'normal', weight: 400, size: 30, spacing: 0.02, alpha: 0.8 },
-  label: { family: 'Jost', style: 'normal', weight: 400, size: 34, spacing: 0.01, alpha: 0.88 },
+  credit: { family: 'Jost', style: 'normal', weight: 400, size: 34, spacing: 0.03, alpha: 0.9 },
+  mono: { family: 'IBM Plex Mono', style: 'normal', weight: 400, size: 34, spacing: 0, alpha: 0.95 },
+  label: { family: 'Jost', style: 'normal', weight: 400, size: 36, spacing: 0.01, alpha: 1 },
 };
 
 // physics values shown on screen: computed from the formulas, never typed in
@@ -33,6 +33,7 @@ const PHYS = (() => {
   return {
     ph, isco,
     gApp: P.diskG(isco.r, bTan), gRec: P.diskG(isco.r, -bTan),
+    iscoSlow: 1 - Math.sqrt(1 - 3 / isco.r),   // proper time per coordinate time on a circular orbit: sqrt(1 - 3M/r)
     clockRate: P.clockRate,
   };
 })();
@@ -102,6 +103,8 @@ const RAYS_GEO = (() => {
     if (found[r.end]) found[r.end].push({ o, r });
   }
   const pick = (arr, n) => (arr.length <= n ? arr : Array.from({ length: n }, (_, i) => arr[Math.round((i * (arr.length - 1)) / (n - 1))]));
+  const hitX = ({ r }) => Math.abs(r.pts[r.pts.length - 1][0]);
+  found.under = found.under.filter((x) => hitX(x) >= 13 && hitX(x) <= 25);
   // start times (s after the panel appears); each ray takes RAY_DRAW s to reach the camera
   pick(found.near, 3).forEach(({ r }, j) => out.push({ pts: r.pts.slice().reverse(), kind: 'near', st: 0.6 + j * 0.25 }));
   pick(found.far, 4).forEach(({ r }, j) => out.push({ pts: r.pts.slice().reverse(), kind: 'far', st: 1.6 + j * 0.5 }));
@@ -127,11 +130,12 @@ const PHOTON_GEO = (() => {
   });
 })();
 
-// Top view for the ISCO: one stable precessing orbit and one plunge (timelike geodesics)
+// Top view for the ISCO: a stable circular orbit outside it, and matter released just inside
+// it (2.95 rs, 2 % below the ISCO's angular momentum) spiralling into the horizon (timelike geodesics)
 const ISCO_GEO = (() => {
-  const stableR = 6.8, plungeR = 5.8;
-  const st = P.traceMatter({ r0: stableR, L: P.circularL(stableR) * 1.006, dphi: 0.01, maxPhi: 4 * Math.PI });
-  const pl = P.traceMatter({ r0: plungeR, L: P.circularL(plungeR) * 0.999, ur0: 0.0, dphi: 0.01, maxPhi: 30 * Math.PI });
+  const stableR = 9.0, plungeR = 5.9;
+  const st = P.traceMatter({ r0: stableR, L: P.circularL(stableR), dphi: 0.01, maxPhi: 2 * Math.PI + 0.02 });
+  const pl = P.traceMatter({ r0: plungeR, L: P.circularL(6) * 0.98, ur0: 0.0, dphi: 0.01, maxPhi: 30 * Math.PI });
   const toXY = (pts) => pts.map(([r, phi]) => [r * Math.cos(phi), r * Math.sin(phi)]);
   return { stable: toXY(st.pts), plunge: toXY(pl.pts), plunged: pl.plunged, stableR, plungeR };
 })();
@@ -161,12 +165,17 @@ export class Overlay {
     this.off = document.createElement('canvas');
     this.off.width = canvas.width; this.off.height = canvas.height;
     this.octx = this.off.getContext('2d');
+    this.issues = [];
   }
 
   draw(t, cam) {
     const ctx = this.ctx;
     const s = this.canvas.width / 1920;
     this.s = s;
+    // layout bookkeeping (design px): every text box and every visible stroke of this frame,
+    // checked at the end so no label ever sits on a path and no text leaves the safe area
+    this.boxes = [];
+    this.lines = [];
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.setTransform(s, 0, 0, s, 0, 0);
@@ -177,7 +186,7 @@ export class Overlay {
       if (a > 0) this.panel(p, t - p.t0, a);
     }
     for (const l of LABELS) {
-      const a = this.env(t, l.t0, l.t1, 0.5);
+      const a = this.env(t, l.t0, l.t1, 0.6);
       if (a > 0) this.label(l.kind, t, a);
     }
     for (const r of READOUTS) {
@@ -190,8 +199,10 @@ export class Overlay {
       const a = this.env(t, c.t0, c.t1, c.fade ?? 0.7);
       if (a <= 0) continue;
       const rise = (1 - smootherstep(c.t0, c.t0 + 1.1, t)) * 10;
-      this.text(c.text, c.kind, c.x, c.y + rise, a, c.align);
+      const str = typeof c.text === 'function' ? c.text(PHYS) : c.text;
+      this.text(str, c.kind, c.x, c.y + rise, a, c.align);
     }
+    this.issues = this.check(t);
   }
 
   env(t, t0, t1, fade) {
@@ -199,6 +210,45 @@ export class Overlay {
     return smoothstep(t0, t0 + fade, t) * (1 - smoothstep(t1 - fade, t1, t));
   }
 
+  // ------------------------------------------------------------------ layout check
+  check(t) {
+    const out = [];
+    const PAD = 6;
+    const boxes = this.boxes.filter((b) => b.a > 0.25);
+    const segHits = (x0, y0, x1, y1, b) => {
+      // segment vs padded rectangle (Liang–Barsky clip)
+      const rx0 = b.x0 - PAD, ry0 = b.y0 - PAD, rx1 = b.x1 + PAD, ry1 = b.y1 + PAD;
+      let u0 = 0, u1 = 1;
+      const dx = x1 - x0, dy = y1 - y0;
+      for (const [p, q] of [[-dx, x0 - rx0], [dx, rx1 - x0], [-dy, y0 - ry0], [dy, ry1 - y0]]) {
+        if (p === 0) { if (q < 0) return false; continue; }
+        const r = q / p;
+        if (p < 0) { if (r > u1) return false; if (r > u0) u0 = r; } else { if (r < u0) return false; if (r < u1) u1 = r; }
+      }
+      return true;
+    };
+    for (const l of this.lines) {
+      if (l.a < 0.25) continue;
+      for (const b of boxes) {
+        if (l.own === b.str) continue;
+        for (let i = 1; i < l.pts.length; i++) {
+          const [x0, y0] = l.pts[i - 1], [x1, y1] = l.pts[i];
+          if (segHits(x0, y0, x1, y1, b)) { out.push(`t=${t.toFixed(2)} ${l.kind} crosses "${b.str}"`); break; }
+        }
+      }
+    }
+    for (let i = 0; i < boxes.length; i++) {
+      const a = boxes[i];
+      if (a.x0 < 30 || a.x1 > 1890 || a.y0 < 30 || a.y1 > 1050) out.push(`t=${t.toFixed(2)} "${a.str}" outside the safe area`);
+      for (let j = i + 1; j < boxes.length; j++) {
+        const b = boxes[j];
+        if (a.x0 < b.x1 + 4 && b.x0 < a.x1 + 4 && a.y0 < b.y1 + 4 && b.y0 < a.y1 + 4) out.push(`t=${t.toFixed(2)} "${a.str}" overlaps "${b.str}"`);
+      }
+    }
+    return out;
+  }
+
+  // ------------------------------------------------------------------ text
   font(f, scale = 1) { return `${f.style} ${f.weight} ${f.size * scale}px "${f.family}"`; }
 
   measure(ctx, str, f) {
@@ -241,50 +291,78 @@ export class Overlay {
     }
   }
 
-  text(str, kind, x, y, alpha, align = 'left') {
+  // the box a string occupies (design px), for leaders and the layout check
+  textBox(str, kind, x, y, align = 'left') {
+    const f = FONTS[kind];
+    const ctx = this.ctx;
+    ctx.save();
+    // canvas letter-spacing pads after the last glyph; exclude it from alignment
+    const w = this.measure(ctx, str, f) - f.spacing * f.size;
+    ctx.restore();
+    const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+    return { x0, y0: y - f.size * 0.74, x1: x0 + w, y1: y + f.size * 0.24, w };
+  }
+
+  text(str, kind, x, y, alpha, align = 'left', color = COL.white) {
     const ctx = this.ctx;
     const f = FONTS[kind];
+    const box = this.textBox(str, kind, x, y, align);
+    this.boxes.push({ ...box, str, a: alpha });
     ctx.save();
     ctx.textAlign = 'left';
-    let w = this.measure(ctx, str, f);
-    // canvas letter-spacing pads after the last glyph; exclude it from alignment
-    w -= f.spacing * f.size;
-    const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
     // legibility: a soft dark halo behind the glyphs, then the crisp glyphs on top
-    ctx.globalAlpha = alpha * 0.8;
+    ctx.globalAlpha = alpha * 0.85;
     ctx.shadowColor = '#000';
-    ctx.shadowBlur = (kind === 'title' ? 44 : 24) * this.s;
+    ctx.shadowBlur = (kind === 'title' ? 44 : 22) * this.s;
     ctx.fillStyle = '#000';
-    this.drawRuns(ctx, str, f, x0, y, '#000');
+    this.drawRuns(ctx, str, f, box.x0, y, '#000');
     ctx.shadowBlur = 0;
     ctx.globalAlpha = alpha * f.alpha;
-    ctx.fillStyle = COL.white;
-    this.drawRuns(ctx, str, f, x0, y, COL.white);
+    ctx.fillStyle = color;
+    this.drawRuns(ctx, str, f, box.x0, y, color);
     ctx.restore();
   }
 
-  // diagram label: set outside the strokes, tied to its feature by a 1 px leader line
-  dlabel(ctx, str, ax, ay, lx, ly, a, align = 'left') {
-    ctx.save();
-    ctx.globalAlpha = a * 0.7;
-    ctx.strokeStyle = COL.white; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(lx + (align === 'right' ? 8 : align === 'left' ? -8 : 0), ly - 11); ctx.stroke();
-    ctx.restore();
-    this.text(str, 'label', lx, ly, a, align);
+  // diagram label tied to its feature by a 1 px leader that stops 8 px short of the text
+  dlabel(ctx, str, ax, ay, lx, ly, a, align = 'left', color = COL.white) {
+    const b = this.textBox(str, 'label', lx, ly, align);
+    const nx = Math.min(Math.max(ax, b.x0), b.x1), ny = Math.min(Math.max(ay, b.y0), b.y1);
+    const dx = ax - nx, dy = ay - ny, d = Math.hypot(dx, dy);
+    if (d > 20) {
+      const ex = nx + (dx / d) * 8, ey = ny + (dy / d) * 8;
+      const sx = ax - (dx / d) * 4, sy = ay - (dy / d) * 4;   // and 4 px short of the feature
+      ctx.save();
+      ctx.globalAlpha = a * 0.75;
+      ctx.strokeStyle = COL.white; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.restore();
+      this.lines.push({ pts: [[sx, sy], [ex, ey]], kind: `leader of "${str}"`, own: str, a });
+    }
+    this.text(str, 'label', lx, ly, a, align, color);
   }
 
   // -------------------------------------------------------------------------
-  path(ctx, pts, map, prog, style, headGlow = true) {
+  maskAlpha(X, Y) {
+    const m = this.mask;
+    if (!m) return 1;
+    const q = Math.hypot((X - m.cx) / m.rx, (Y - m.cy) / m.ry);
+    return q < 0.72 ? 1 : Math.max(0, 1 - (q - 0.72) / 0.28);
+  }
+
+  path(ctx, pts, map, prog, style, headGlow = true, name = 'path') {
     const n = Math.max(2, Math.floor(pts.length * prog));
     ctx.save();
     ctx.strokeStyle = style.color;
     ctx.lineWidth = style.width;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     ctx.beginPath();
+    const vis = [];
     for (let i = 0; i < n; i++) {
       const [X, Y] = map(pts[i]);
       if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+      if (this.maskAlpha(X, Y) > 0.15) vis.push([X, Y]); else if (vis.length) { this.lines.push({ pts: vis.splice(0), kind: name, a: this.diagA }); }
     }
+    if (vis.length > 1) this.lines.push({ pts: vis, kind: name, a: this.diagA });
     ctx.stroke();
     if (headGlow && prog > 0 && prog < 1) {
       const [X, Y] = map(pts[n - 1]);
@@ -294,34 +372,45 @@ export class Overlay {
     ctx.restore();
   }
 
+  circle(ctx, cx, cy, r, name) {
+    const pts = [];
+    for (let k = 0; k <= 96; k++) { const a = (k / 96) * Math.PI * 2; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+    this.lines.push({ pts, kind: name, a: this.diagA });
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  }
+
   hole(ctx, cx, cy, scale, { photonSphere = false, isco = false } = {}) {
     // strokes only: a schematic, never a second black hole competing with the render
     ctx.save();
     ctx.strokeStyle = rgba(COL.white, 0.8); ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.arc(cx, cy, 2 * scale, 0, Math.PI * 2); ctx.stroke();
+    this.circle(ctx, cx, cy, 2 * scale, 'horizon');
     if (photonSphere) {
       ctx.setLineDash([6, 8]);
       ctx.strokeStyle = rgba(COL.white, 0.6);
-      ctx.beginPath(); ctx.arc(cx, cy, 3 * scale, 0, Math.PI * 2); ctx.stroke();
+      this.circle(ctx, cx, cy, 3 * scale, 'photon sphere');
     }
     if (isco) {
-      ctx.setLineDash([2, 7]);
-      ctx.strokeStyle = rgba(COL.white, 0.7);
-      ctx.beginPath(); ctx.arc(cx, cy, 6 * scale, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([3, 7]);
+      ctx.strokeStyle = rgba(COL.white, 0.75);
+      this.circle(ctx, cx, cy, 6 * scale, 'ISCO ring');
     }
     ctx.restore();
   }
 
-  // Diagrams are drawn on an offscreen layer, then composited through a soft radial
+  // Diagrams are drawn on an offscreen layer, then composited through a soft elliptical
   // mask: no box, no hard edge; lines fade out instead of being clipped.
-  beginDiagram() {
+  beginDiagram(cx, cy, rx, ry, a) {
+    this.mask = { cx, cy, rx, ry };
+    this.diagA = a;
     const o = this.octx;
     o.setTransform(1, 0, 0, 1, 0, 0);
     o.clearRect(0, 0, this.off.width, this.off.height);
     o.setTransform(this.s, 0, 0, this.s, 0, 0);
     return o;
   }
-  endDiagram(cx, cy, rx, ry, a) {
+  endDiagram() {
+    const { cx, cy, rx, ry } = this.mask;
+    const a = this.diagA;
     const o = this.octx;
     o.save();
     o.setTransform(this.s, 0, 0, this.s, 0, 0);
@@ -338,105 +427,95 @@ export class Overlay {
     ctx.globalAlpha = a;
     ctx.drawImage(this.off, 0, 0);
     ctx.restore();
+    this.mask = null;
   }
 
   panel(p, lt, a) {
     const ctx = this.ctx;
     if (p.id === 'rays') {
-      // side view, right of frame
-      const sc = 18, cx = 1560, cy = 560;
+      // side view in the right-hand column; the camera is off the right edge
+      const sc = 13, cx = 1617, cy = 470;   // above the real disk's plane (y ≈ 575), so the two never line up
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
-      const o = this.beginDiagram();
+      const o = this.beginDiagram(1585, cy, 350, 240, a);
       // the disk: a soft, heavier bar, distinct from the 2 px rays
-      for (const [x0, x1] of [[-26, -6], [6, 26]]) {
+      for (const [x0, x1] of [[-27, -6], [6, 27]]) {
         const g = o.createLinearGradient(cx + x0 * sc, 0, cx + x1 * sc, 0);
         const inner = x0 < 0 ? 1 : 0;
         g.addColorStop(inner ? 1 : 0, rgba(COL.white, 0.95)); g.addColorStop(0.5, rgba(COL.ember, 0.8)); g.addColorStop(inner ? 0 : 1, rgba(COL.ember, 0));
         o.fillStyle = g;
         o.fillRect(cx + x0 * sc, cy - 3, (x1 - x0) * sc, 6);
+        this.lines.push({ pts: [[cx + x0 * sc, cy], [cx + x1 * sc, cy]], kind: 'disk bar', a });
       }
       this.hole(o, cx, cy, sc);
       for (const ray of RAYS_GEO.rays) {
         const prog = smootherstep(ray.st, ray.st + RAY_DRAW, lt);
         if (prog <= 0) continue;
         const hot = ray.kind !== 'near';
-        this.path(o, ray.pts, map, prog, { color: rgba(hot ? COL.ember : COL.white, hot ? 0.95 : 0.35), width: hot ? 2.0 : 1.2 });
+        this.path(o, ray.pts, map, prog, { color: rgba(hot ? COL.ember : COL.white, hot ? 0.95 : 0.35), width: hot ? 2.0 : 1.2 }, true, `${ray.kind} ray`);
         // emission point on the disk
         const [ex, ey] = map(ray.pts[0]);
         o.fillStyle = rgba(COL.white, 0.9 * Math.min(1, prog * 4));
         o.beginPath(); o.arc(ex, ey, 3, 0, Math.PI * 2); o.fill();
       }
-      this.endDiagram(cx - 20, cy, 300, 250, a);
+      this.endDiagram();
       const la = a * smoothstep(3.5, 4.5, lt);
-      this.text('Light paths, seen from the side', 'label', cx, 268, la, 'center');
-      this.dlabel(ctx, 'far side of the disk', cx - 12 * sc, cy + 8, cx - 150, cy + 150, la, 'center');
-      this.dlabel(ctx, 'to you', cx + 13 * sc, cy - 110, cx + 210, cy - 205, la, 'center');
+      // "to you": above the bundle where it leaves the frame toward the camera
+      const top = RAYS_GEO.rays.reduce((m, r) => Math.max(m, ...r.pts.filter(([x]) => x > 16 && x < 18).map(([, y]) => y)), 0);
+      const [tx, ty] = map([17, top + 0.6]);
+      this.dlabel(ctx, 'to you', tx, ty, 1860, ty - 54, la, 'right');
+      this.dlabel(ctx, 'far side of the disk', cx - 26.6 * sc, cy + 5, 1262, cy + 172, la, 'left');
     } else if (p.id === 'photon') {
-      // full-frame interlude over the dimmed shot: top view of the critical ray
-      const sc = 40, cx = 680, cy = 560;
+      // full-frame interlude over black: top view of light passing the hole
+      const sc = 44, cx = 960, cy = 540;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
-      const o = this.beginDiagram();
+      const o = this.beginDiagram(cx, cy, 600, 290, a);
       this.hole(o, cx, cy, sc, { photonSphere: true });
       PHOTON_GEO.forEach((ray, i) => {
         const st = ray.main ? PHOTON_MAIN.st : 0.4 + i * 0.25;
         const prog = smootherstep(st, st + (ray.main ? PHOTON_MAIN.dur : 3.0), lt);
         if (prog <= 0) return;
-        this.path(o, ray.pts, map, prog, ray.main ? { color: rgba(COL.white, 0.95), width: 2.4 } : { color: rgba(COL.ember, 0.6), width: 1.5 });
+        this.path(o, ray.pts, map, prog, ray.main ? { color: rgba(COL.white, 0.95), width: 2.4 } : { color: rgba(COL.ember, 0.6), width: 1.5 }, true, ray.main ? 'main ray' : 'neighbour ray');
       });
-      this.endDiagram(cx, cy, 520, 330, a);
+      this.endDiagram();
       const la = a * smoothstep(1.2, 2.2, lt);
-      this.dlabel(ctx, 'photon sphere, 1.5 rₛ', cx + 3 * sc * 0.7, cy - 3 * sc * 0.7, cx + 250, cy - 230, la, 'left');
-      this.dlabel(ctx, 'event horizon, 1 rₛ', cx - 2 * sc * 0.7, cy + 2 * sc * 0.7, cx - 250, cy + 230, la, 'right');
-      this.text('Top view of one ray, traced', 'label', cx, 868, la * 0.85, 'center');
+      // labels placed where no ray passes: the horizon is named inside its circle, the photon
+      // sphere from its left side (light arrives from the upper left and leaves downward)
+      this.text('horizon', 'label', cx, cy + 12, la, 'center');
+      this.dlabel(ctx, 'photon sphere, 1.5 rₛ', cx - 3 * sc, cy, cx - 3 * sc - 76, cy + 12, la, 'right');
+      const ma = a * smoothstep(PHOTON_MAIN.st + PHOTON_MAIN.dur - 0.6, PHOTON_MAIN.st + PHOTON_MAIN.dur + 0.4, lt);
+      const exit = PHOTON_GEO.find((r) => r.main).pts.find(([x, y]) => y < -5.6 && x < 4);
+      if (exit) { const [ex, ey] = map(exit); this.dlabel(ctx, 'circles, then escapes', ex, ey, ex - 30, cy + 352, ma, 'center'); }
     } else if (p.id === 'isco') {
-      // small inset, lower right
-      const sc = 19, cx = 1600, cy = 700;
+      // right-hand column, over the dimmer receding side of the disk
+      const sc = 26, cx = 1530, cy = 600;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
-      const o = this.beginDiagram();
+      const o = this.beginDiagram(cx, cy, 345, 345, a);
       this.hole(o, cx, cy, sc, { isco: true });
-      this.path(o, ISCO_GEO.stable, map, smootherstep(0.8, 8.5, lt), { color: rgba(COL.white, 0.85), width: 1.8 });
-      this.path(o, ISCO_GEO.plunge, map, smootherstep(PLUNGE.st, PLUNGE.st + PLUNGE.dur, lt), { color: rgba(COL.ember, 0.95), width: 2.0 });
-      this.endDiagram(cx, cy, 210, 210, a);
+      this.path(o, ISCO_GEO.stable, map, smootherstep(0.8, 6.0, lt), { color: rgba(COL.white, 0.9), width: 2.0 }, true, 'stable orbit');
+      this.path(o, ISCO_GEO.plunge, map, smootherstep(PLUNGE.st, PLUNGE.st + PLUNGE.dur, lt), { color: rgba(COL.ember, 0.95), width: 2.2 }, true, 'plunge');
+      this.endDiagram();
       const la = a * smoothstep(2.0, 3.0, lt);
-      this.dlabel(ctx, 'last stable orbit, 3 rₛ', cx + 6 * sc * 0.71, cy - 6 * sc * 0.71, cx + 60, cy - 205, la, 'center');
-      ctx.save(); ctx.globalAlpha = la;
-      ctx.fillStyle = rgba(COL.white, 0.85); ctx.fillRect(cx - 230, cy + 211, 30, 2.5);
-      ctx.fillStyle = rgba(COL.ember, 0.95); ctx.fillRect(cx - 230, cy + 259, 30, 2.5);
-      ctx.restore();
-      this.text('from 3.4 rₛ: stable', 'label', cx - 188, cy + 223, la);
-      this.text('from 2.9 rₛ: plunges', 'label', cx - 188, cy + 271, la);
+      this.text('stays in orbit', 'label', cx, cy - ISCO_GEO.stableR * sc - 22, la, 'center');
+      this.text('spirals in', 'label', cx, cy + ISCO_GEO.stableR * sc + 52, la * smoothstep(PLUNGE.st + 2, PLUNGE.st + 3, lt), 'center', COL.ember);
+      this.text('3 rₛ', 'label', cx - 6 * sc - 12, cy + 12, la, 'right');
     }
   }
 
   label(kind, t, a) {
     const ctx = this.ctx;
-    if (kind === 'ourRender') {
-      this.dlabel(ctx, 'our render, at EHT resolution', 830, 470, 560, 380, a, 'right');
-      return;
-    }
-    const isWipe = kind === 'divider';
-    const pos = (tt) => (isWipe ? effectsAt(tt).wipe[0] : effectsAt(tt).teleSplit[0]) * 1920;
-    const x = pos(t);
-    if (x < -40 || x > 1960) return;
-    // a 180-degree shutter: the line is smeared over the distance it travels in half a frame
-    const smear = Math.max(1.5, Math.abs(pos(t + 1 / 60) - x));
-    const y0 = 0, y1 = 1080;
-    ctx.save();
-    ctx.globalAlpha = a * 0.75 * Math.min(1, 1.5 / smear + 0.25);
-    const g = ctx.createLinearGradient(0, y0, 0, y1);
-    g.addColorStop(0, rgba(COL.white, 0)); g.addColorStop(0.25, rgba(COL.white, 0.9)); g.addColorStop(0.75, rgba(COL.white, 0.9)); g.addColorStop(1, rgba(COL.white, 0));
-    ctx.fillStyle = g;
-    ctx.fillRect(x - smear / 2, y0, smear, y1 - y0);
-    ctx.restore();
-    const edge = smoothstep(60, 420, x) * (1 - smoothstep(1500, 1860, x));
-    const la = a * edge;
-    if (la <= 0.01) return;
-    if (isWipe) {
-      this.text('without Doppler', 'label', x - 24, 360, la, 'right');
-      this.text('with Doppler', 'label', x + 24, 360, la, 'left');
-    } else {
-      this.text('sharp', 'label', x - 24, 330, la, 'right');
-      this.text('at EHT resolution', 'label', x + 24, 330, la, 'left');
+    if (kind === 'split') {
+      // the payoff ends side by side; a still hairline marks the seam
+      const x = 960;
+      ctx.save();
+      ctx.globalAlpha = a * 0.5;
+      const g = ctx.createLinearGradient(0, 280, 0, 900);
+      g.addColorStop(0, rgba(COL.white, 0)); g.addColorStop(0.2, rgba(COL.white, 1)); g.addColorStop(0.8, rgba(COL.white, 1)); g.addColorStop(1, rgba(COL.white, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(x - 0.75, 280, 1.5, 620);
+      ctx.restore();
+      this.lines.push({ pts: [[x, 330], [x, 850]], kind: 'split line', a });
+      this.text('sharp', 'label', 470, 575, a, 'right');
+      this.text('EHT resolution', 'label', 1450, 575, a, 'left');
     }
   }
 }
