@@ -24,8 +24,8 @@ npm run render         # → film/out/film_16x9.mp4
 waits for the full draw and screenshots it at 1920×1080 × deviceScaleFactor 2 (3840×2160). Frames are rendered in
 5-second chunks; each chunk is Lanczos-downscaled to 1080p, converted to BT.709 and stored as a near-lossless 10-bit
 intermediate, then its PNGs are deleted. **It is resumable**: stop it any time and run it again; finished chunks are
-kept in `film/out/chunks/final/`. When all chunks exist they are joined, muxed with the score and encoded to the
-delivery spec:
+kept in `film/out/chunks/final/` (delete that folder if you change the source, so old chunks are not reused). When
+all chunks exist they are joined, muxed with the score and encoded to the delivery spec:
 
 * 1920×1080, 30 fps, 108 s, H.264 High, yuv420p, CRF 17, preset slow, tagged BT.709 (primaries, transfer, matrix, TV range)
 * AAC 256 kb/s, 48 kHz stereo, `+faststart`, under 95 MB
@@ -44,7 +44,10 @@ Useful options (after `--`):
 | `--keep-frames` | keep the PNG frames of finished chunks |
 
 Rough timing: on a recent desktop GPU most of the time is spent capturing 4K PNGs (≈ 1–2 s per frame, so about
-1–2 hours). In this repository's build container, which has no GPU, one full-quality frame took ≈ 37 s in SwiftShader.
+1–2 hours). In this repository's build container, which has no GPU, one full-quality frame took ≈ 35–70 s in
+SwiftShader (≈ 4–5 minutes during the close orbit, where the photon ring fills the frame and gets 8× supersampling),
+so the full film would take days there; the container produced the stills, contact sheet, poster, score and the
+640×360 preview instead.
 
 ### Other scripts
 
