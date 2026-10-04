@@ -54,6 +54,9 @@ npm run stills     # one full-resolution still per beat → film/out/stills/
 npm run contact    # contact sheet, one frame every 2 s → film/out/contact_sheet.jpg
 npm run strip -- --start=69   # 1 s of full-resolution frames for flicker checks
 npm run serve      # then open http://127.0.0.1:5173/film/src/index.html?t=42 to look at any moment
+node film/scripts/poster.mjs          # portrait poster → film/out/poster.jpg
+node film/scripts/measure.mjs --times=24.5,55.5   # exposure check: clipped-white %, body median, p99
+node film/scripts/verify.mjs film/out/film_16x9.mp4   # checks the file against the delivery spec, grabs frames
 ```
 
 Every frame is a pure function of time: the page exposes `window.seek(t)` (returns when the frame is fully drawn)
@@ -73,7 +76,11 @@ hashing, so the same `t` gives the same image on any machine.
 * **Stars**. Three procedural layers with realistic number counts and blackbody colours, drawn through the local
   Jacobian of the lens map so they stay anti-aliased and stretch into arcs near the Einstein ring.
 * **Image**. HDR (RGBA16F) → bloom on the hottest regions only → ACES filmic → grade → vignette → grain + dither.
-  Text and diagrams live on a separate 2D canvas and are never blurred.
+  Text and diagrams are drawn on their own 2D canvas (never blurred or graded) and blended in the very last WebGL
+  pass, so every captured frame pairs the picture with the text of the same instant.
+* **Ray differentials**. Alongside each ray the shader integrates the Jacobi field `j'' = (6u − 1) j`, which gives
+  every disk hit its exact pixel footprint (texture filtering for primary, lensed and photon-ring images) and the
+  exact lens Jacobian for the stars — no screen-space derivatives.
 * **Score** (`film/audio/`). Plain-JS synthesis at 48 kHz: detuned-saw pads through a moving state-variable filter, an
   FM glass motif, a heartbeat pulse that is the film's clock, sound effects driven by the same timeline as the
   pictures (the circling ray pans around you, the plunging particle chirps), a generated convolution reverb,
