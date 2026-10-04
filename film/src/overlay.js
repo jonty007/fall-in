@@ -525,12 +525,13 @@ export class Overlay {
       }
       // the observer
       const [ox, oy] = map(RAYS_GEO.cam);
-      o.fillStyle = rgba(COL.white, 1);
+      const first = Math.min(...RAYS_GEO.rays.map((r) => r.st)) + RAY_DRAW;
+      o.fillStyle = rgba(COL.white, smoothstep(first - 0.5, first, lt));
       o.beginPath(); o.arc(ox, oy, 5, 0, Math.PI * 2); o.fill();
       this.endDiagram();
       const la = a * smoothstep(3.5, 4.5, lt);
       this.text('you', 'label', ox + 12, oy - 28, la, 'right');
-      this.dlabel(ctx, 'far side of the disk', cx - (DISK_OUT - 0.4) * sc, cy + 5, cx - DISK_OUT * sc, cy + 150, la, 'left');
+      this.dlabel(ctx, 'where that light starts', cx - (DISK_OUT - 0.4) * sc, cy + 5, cx - DISK_OUT * sc, cy + 126, la, 'left');
     } else if (p.id === 'photon') {
       // full-frame interlude over black: top view of light passing the hole
       const sc = 58, cx = 960, cy = 600;
@@ -538,9 +539,10 @@ export class Overlay {
       const o = this.beginDiagram(cx, cy, 640, 330, a);
       // a thin dashed reference for the photon sphere; the circling ray laps it alone first
       o.save();
-      o.strokeStyle = rgba(COL.white, 0.8); o.lineWidth = 1.8;
-      this.circle(o, cx, cy, 2 * sc, 'horizon');
       const T = PHOTON_T;
+      // the horizon is held back while the ray laps alone, and comes up with the neighbouring rays
+      o.strokeStyle = rgba(COL.white, 0.4 + 0.4 * smoothstep(T.branch, T.branch + 0.8, lt)); o.lineWidth = 1.8;
+      this.circle(o, cx, cy, 2 * sc, 'horizon');
       const done = smoothstep(T.exit[1], T.exit[1] + 0.8, lt);
       // the dashed reference shows where the sphere is only over the part of the circle the ray has not
       // yet covered, so the two never sit side by side (the ray's entry leg runs just outside r = 3M)
@@ -575,7 +577,7 @@ export class Overlay {
           const n = Math.max(2, Math.floor(ray.pts.length * prog));
           // while it moves: a faint path with a bright fading trail and a glowing head, so the lap
           // reads as motion; once it has left, the whole path comes up to full strength
-          const base = 0.3 + 0.7 * done;
+          const base = 0.72 + 0.28 * done;
           this.path(o, ray.pts, map, prog, { color: rgba(COL.white, base), width: 2.6 }, false, 'main ray');
           if (lt < T.exit[1] + 0.8) {
             const trail = 420, k0 = Math.max(0, n - trail);
@@ -592,20 +594,20 @@ export class Overlay {
             if (prog < 1) {
               // the head is smeared along its own path over the half frame before this one (a 180°
               // shutter), so it glides instead of stepping
+              // shutter, drawn as a Gaussian glow (σ ≈ 5 px, out to 4σ) at many samples along that path
               const nb = Math.max(1, Math.floor(ray.pts.length * mainProg(lt - 1 / 60)) - 1);
+              const NS = 12, R = 20;
               o.save();
-              o.lineCap = 'round'; o.lineJoin = 'round';
-              for (const [w, al] of [[16, 0.18], [9, 0.35], [4.5, 0.75]]) {
-                o.strokeStyle = rgba(COL.white, al); o.lineWidth = w;
-                o.beginPath();
-                for (let k = nb; k <= n - 1; k++) { const [X, Y] = map(ray.pts[k]); if (k === nb) o.moveTo(X, Y); else o.lineTo(X, Y); }
-                o.stroke();
+              for (let q = 0; q < NS; q++) {
+                const k = Math.round(nb + ((n - 1 - nb) * q) / (NS - 1));
+                const [X, Y] = map(ray.pts[k]);
+                const g = o.createRadialGradient(X, Y, 0, X, Y, R);
+                for (const [u, al] of [[0, 1], [0.15, 0.8], [0.25, 0.61], [0.375, 0.32], [0.5, 0.135], [0.625, 0.044], [0.75, 0.011], [1, 0]]) {
+                  g.addColorStop(u, rgba(COL.white, al * 0.24));
+                }
+                o.fillStyle = g; o.beginPath(); o.arc(X, Y, R, 0, Math.PI * 2); o.fill();
               }
               o.restore();
-              const [hx, hy] = map(ray.pts[n - 1]);
-              const g = o.createRadialGradient(hx, hy, 0, hx, hy, 14);
-              g.addColorStop(0, rgba(COL.white, 0.9)); g.addColorStop(1, rgba(COL.white, 0));
-              o.fillStyle = g; o.beginPath(); o.arc(hx, hy, 14, 0, Math.PI * 2); o.fill();
             }
           }
           return;

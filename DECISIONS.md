@@ -515,3 +515,17 @@ Also: the Doppler shot tilted up a further 0.7° for clear space above the arc.
 Also: the gravity diagram raised 35 px off the disk's faint wing; the payoff seam's blend narrowed to ≈ 1.5 px so
 the sharp ring no longer bleeds across it. Kept: the lingering ember at 38.0 s — the burn-out completes at 38.4 s
 and the last warm streaks are the intended cooling.
+
+### Round 14 — the reviewer called it close to delivery; one real flaw and four polish notes
+
+1. **The moving photon's glow had a hard edge and stacked discs** (from the opaque wide strokes used as its smear).
+   → The head is now a Gaussian glow (σ ≈ 5 px, drawn out to 4σ, falling smoothly to zero) swept along its
+   half-frame path at 12 samples: measured profile 243 → 196 → 147 → 104 → 61 → 31 → 14 → 7 → 3 → 1 → 0.
+2. **The lap trace was dimmer than the horizon circle while the ray lapped alone.** → The trace draws at 72 %
+   brightness (full once the lap is done) and the horizon is held at 40 % until the neighbouring rays come in.
+3. **The Interstellar caption landed late in the morph.** → 0.4 s earlier (headline 67.3 s, caption 67.5 s).
+4. **The payoff headline faded before its caption.** → The caption now goes first.
+5. **The gravity diagram's observer dot appeared alone, like a star.** → It arrives with the first ray.
+
+Also: the gravity label no longer repeats the caption ("where that light starts", 25 px higher); the soft scrim under
+the ISCO diagram is a little stronger. Kept: the soft near disk at 32–36 s (the reviewer: "acceptable as depth").

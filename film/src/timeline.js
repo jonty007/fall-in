@@ -131,7 +131,7 @@ const STARS = [[0, 1], [76, 1], [82, 2.2], [86, 3], [88, 3], [91.6, 1], [108, 1]
 const SCRIMS = [
   { t0: 6.8, t1: 12.6, rect: [500, 840, 1420, 1010], k: 0.5 },
   { t0: 33.0, t1: 38.6, rect: [40, 70, 1000, 250], k: 0.62 },
-  { t0: 49.2, t1: 59.4, rect: [1300, 300, 1760, 920], k: 0.5 },   // a soft local scrim under the diagram only
+  { t0: 49.2, t1: 59.4, rect: [1300, 300, 1760, 920], k: 0.6 },   // a soft local scrim under the diagram only
   { t0: 62.2, t1: 76.4, rect: [380, 60, 1540, 290], k: 0.62 },
 ];
 
@@ -184,8 +184,8 @@ export const CUES = [
 
   { t0: 62.6, t1: 67.6, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
   { t0: 63.0, t1: 67.6, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
-  { t0: 67.7, t1: 73.9, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 150, align: 'center' },
-  { t0: 67.9, t1: 73.9, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
+  { t0: 67.3, t1: 73.9, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 150, align: 'center' },
+  { t0: 67.5, t1: 73.9, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
   // the return restates the real view's headline, with the caption on the standard row
   { t0: 74.0, t1: 77.0, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
   { t0: 74.2, t1: 77.0, kind: 'caption', text: 'Back to the real view.', x: 960, y: 214, align: 'center' },
@@ -195,7 +195,7 @@ export const CUES = [
 
   { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
   { t0: 96.4, t1: 100.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
-  { t0: 100.4, t1: 104.3, kind: 'caption', text: 'Like M87* (EHT 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
+  { t0: 100.4, t1: 104.0, kind: 'caption', text: 'Like M87* (EHT 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
 
   // the 3 s end card: in by 105.4 s, held, then picture and type fade out together to black by 107.85 s
   { t0: 104.9, t1: 107.85, kind: 'title', text: 'FALL IN', x: 960, y: 812, align: 'center', fade: 0.55 },
