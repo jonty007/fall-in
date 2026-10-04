@@ -416,3 +416,22 @@ start at 5200 K (no orange stars).
 Also: the payoff blur wipe now starts at the ring's right edge and fades in, so it is visibly under way when its
 caption lands; the end-card lockup moved down ≈ 55 px; one leader end-marker style; thinner gravity rays where they
 converge on the observer.
+
+### Round 9 — remaining findings and what was done
+
+1. **Photon diagram: the photon sphere drawn twice, out of register.** The critical ray only approaches r = 3M
+   asymptotically, so its lap and any reference circle can never coincide exactly. → The dashed reference now
+   guides the eye only during the lap and fades out as the lap completes; the ray's own trace is the single circle
+   that stays (labelled "photon sphere, 1.5 rₛ"). "falls in" names the orange ray on its way in, outside the loop.
+2. **The payoff caption switched to italic at "(EHT" and dropped the asterisk from M87\*.** A real bug: the
+   round-8 italic markup used "\*", which is part of the black hole's name. → The markup is now "_title_"; the
+   caption reads "Like M87\* (EHT 2019): brighter at the bottom." in roman.
+3. **Doppler / Interstellar captions resting on the arc glow (4 px clear).** → That text block moved up 40 px.
+4. **The ISCO diagram read as a bullseye in a held frame.** → The plunging path is drawn faint at its start and
+   full at the horizon and ends on an ember dot where it falls in; a particle keeps circling the stable orbit until
+   the beat ends.
+5. **Stars as hard 1 px dashes; a few long streaks reading as scratches.** → Streaks are slightly softer across
+   (up to 1.45× the star size), taper toward their ends, and long ones are faded more strongly.
+
+Also: the first payoff caption now lands at 96.0 s, when the blur is visibly under way; the Doppler leaders carry
+a dark keyline so they hold on the white-hot disk.

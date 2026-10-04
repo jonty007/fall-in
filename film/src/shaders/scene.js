@@ -263,6 +263,7 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   ml = min(ml, 48.0);
   float tc = ml > 1e-3 ? clamp(-dot(pp, mv) / (ml * ml), -0.5, 0.5) : 0.0;
   pp += tc * mv;
+  float taper = 1.0 - 0.75 * smoothstep(0.25, 0.5, abs(tc)) * smoothstep(2.0, 8.0, ml);   // streaks fade toward their ends
   // brightness: number counts N(<m) ~ 10^(0.6 m)
   m = clamp(mMax + log(max(rnd2.x, 1e-6)) / (0.6 * log(10.0)), mMin, mMax);
   float flux = pow(10.0, -0.4 * m);
@@ -277,7 +278,9 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   float r2 = dot(pp, pp);
   const float SIG = 1.25;                       // point-spread in render pixels (~0.6 px after the 2x downscale)
   // (streaks much longer than the star are faded further: fast lensed images read as scratches)
-  float core = exp(-0.5 * r2 / (SIG * SIG)) / (2.0 * PI * SIG * SIG) / (1.0 + ml / (2.5066 * SIG)) / (1.0 + ml * ml / 400.0);
+  // (a streak is also a little softer across, so it is not a hard 1 px line after the downscale)
+  float sg = SIG * (1.0 + 0.45 * smoothstep(2.0, 16.0, ml));
+  float core = exp(-0.5 * r2 / (sg * sg)) / (2.0 * PI * sg * sg) / (1.0 + ml / (2.5066 * sg)) / (1.0 + ml * ml / 160.0) * taper;
   // the few brightest stars get a soft glow (lens scatter), so the field has a hierarchy
   float halo = exp(-0.5 * r2 / 36.0) / (2.0 * PI * 36.0) * 0.16 * smoothstep(2.0, -1.0, m) / (1.0 + ml / 15.0);
   float area = max(L.area / (L.scale * L.scale), 1e-16);   // solid angle per render pixel after lensing

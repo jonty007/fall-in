@@ -175,7 +175,7 @@ function runs(str) {
   let buf = '', it = false;
   const flush = () => { if (buf) { out.push({ t: 'n', s: buf, it }); buf = ''; } };
   for (const ch of str) {
-    if (ch === '*') { flush(); it = !it; }   // *title* is set in italic
+    if (ch === '_') { flush(); it = !it; }   // _title_ is set in italic (an asterisk is a real character: M87*)
     else if (SUB[ch]) { flush(); out.push({ t: 'sub', s: SUB[ch] }); }
     else if (SUP[ch]) { flush(); out.push({ t: 'sup', s: SUP[ch] }); }
     else if (ch === '≈') { flush(); out.push({ t: 'approx' }); }
@@ -228,7 +228,10 @@ export class Overlay {
         const sx = r.align === 'right' ? b0.x1 - 40 : b0.x0 + 40, sy = b0.y1 + 10;
         const [ax, ay] = r.leader;
         ctx.save();
-        ctx.globalAlpha = a * 0.85;
+        ctx.globalAlpha = a * 0.5;
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 4.5;   // a dark keyline so it holds on the white-hot disk
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ax, ay); ctx.stroke();
+        ctx.globalAlpha = a * 0.9;
         ctx.strokeStyle = COL.white; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ax, ay); ctx.stroke();
         // the end marker: a cream dot with a thin dark edge, one style on bright and dim disk
@@ -537,10 +540,10 @@ export class Overlay {
       o.strokeStyle = rgba(COL.white, 0.8); o.lineWidth = 1.8;
       this.circle(o, cx, cy, 2 * sc, 'horizon');
       const T = PHOTON_T;
-      // once the lap is done, the true sphere becomes the dominant stroke and the lap a lighter trace
       const done = smoothstep(T.exit[1], T.exit[1] + 0.8, lt);
+      // the dashed reference guides the eye during the lap, then gives way: the ray's own trace,
+      // which rides r = 3M, is the single stroke that stays (two near-coincident circles read as misregistration)
       if (done < 1) { o.setLineDash([4, 10]); o.lineWidth = 1.2; o.strokeStyle = rgba(COL.white, 0.3 * (1 - done)); this.circle(o, cx, cy, 3 * sc, 'photon sphere'); }
-      if (done > 0) { o.setLineDash([]); o.lineWidth = 2.0; o.strokeStyle = rgba(COL.white, 0.85 * done); this.circle(o, cx, cy, 3 * sc, 'photon sphere'); }
       o.restore();
       PHOTON_GEO.forEach((ray, i) => {
         if (ray.main) {
@@ -549,7 +552,7 @@ export class Overlay {
           const n = Math.max(2, Math.floor(ray.pts.length * prog));
           // while it moves: a faint path with a bright fading trail and a glowing head, so the lap
           // reads as motion; once it has left, the whole path comes up to full strength
-          const base = 0.3 + 0.15 * done;   // the lap stays a lighter trace under the true sphere
+          const base = 0.3 + 0.7 * done;
           this.path(o, ray.pts, map, prog, { color: rgba(COL.white, base), width: 3.2 }, false, 'main ray');
           if (lt < T.exit[1] + 0.8) {
             const trail = 420, k0 = Math.max(0, n - trail);
@@ -583,7 +586,11 @@ export class Overlay {
       this.endDiagram();
       // labels at the end of each ray (the photon sphere from its free left side, during the lap)
       this.dlabel(ctx, `photon sphere, ${(PHYS.ph.r / 2).toFixed(1)} rₛ`, cx - 3 * sc, cy, cx - 3 * sc - 76, cy + 12, a * smoothstep(2.4, 3.2, lt), 'right');
-      this.text('falls in', 'label', cx + 90, cy + 46, a * smoothstep(T.branch + 1.4, T.branch + 2.2, lt), 'right', COL.ember);
+      // the falling ray is named on its way in, outside the loop, where it is the only ember line
+      const fall = PHOTON_GEO.find((r) => r.kind === 'falls');
+      const fpt = fall && fall.pts.find(([x]) => x > -5.6);
+      const fa = a * smoothstep(T.branch + 0.6, T.branch + 1.4, lt);
+      if (fpt && fa > 0) { const [fx, fy] = map(fpt); this.dlabel(ctx, 'falls in', fx, fy + 4, fx - 20, fy + 66, fa, 'right', COL.ember); }
       const R = (k) => PHOTON_GEO.find((r) => (k === 'main' ? r.main : r.kind === k));
       const tag = (ray, txt, dx, align, t0) => {
         const ta = a * smoothstep(t0, t0 + 0.8, lt);
@@ -598,8 +605,26 @@ export class Overlay {
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
       const o = this.beginDiagram(cx, cy, 345, 345, a);
       this.hole(o, cx, cy, sc, { isco: true });
-      this.path(o, ISCO_GEO.stable, map, smootherstep(0.8, 6.0, lt), { color: rgba(COL.white, 0.7), width: 1.6 }, true, 'stable orbit');
-      this.path(o, ISCO_GEO.plunge, map, smootherstep(PLUNGE.st, PLUNGE.st + PLUNGE.dur, lt), { color: rgba(COL.ember, 0.95), width: 2.2 }, true, 'plunge');
+      const sp = smootherstep(0.8, 6.0, lt);
+      this.path(o, ISCO_GEO.stable, map, sp, { color: rgba(COL.white, 0.7), width: 1.6 }, true, 'stable orbit');
+      if (sp >= 1) {
+        // the stable particle keeps going round
+        const ang = ((lt - 6.0) / 3.2) * Math.PI * 2;
+        const [px, py] = map([ISCO_GEO.stableR * Math.cos(ang), ISCO_GEO.stableR * Math.sin(ang)]);
+        o.fillStyle = rgba(COL.white, 0.95); o.beginPath(); o.arc(px, py, 4.2, 0, Math.PI * 2); o.fill();
+      }
+      const pp = smootherstep(PLUNGE.st, PLUNGE.st + PLUNGE.dur, lt);
+      if (pp > 0) {
+        // drawn faint at its start and full at the horizon, so even a held frame reads as falling inward
+        const pts = ISCO_GEO.plunge, n = Math.max(2, Math.floor(pts.length * pp)), K = 8;
+        for (let c = 0; c < K; c++) {
+          const i0 = Math.floor((n * c) / K), i1 = Math.floor((n * (c + 1)) / K);
+          if (i1 - i0 < 1) continue;
+          this.path(o, pts.slice(i0, i1 + 1), map, 1, { color: rgba(COL.ember, 0.3 + 0.65 * ((c + 1) / K)), width: 2.2 }, false, 'plunge');
+        }
+        const [hx, hy] = map(pts[n - 1]);
+        o.fillStyle = rgba(pp < 1 ? COL.white : COL.ember, 0.95); o.beginPath(); o.arc(hx, hy, pp < 1 ? 3.6 : 4.2, 0, Math.PI * 2); o.fill();
+      }
       this.endDiagram();
       const la = a * smoothstep(2.0, 3.0, lt);
       this.text('stays in orbit', 'label', cx, cy - ISCO_GEO.stableR * sc - 22, la, 'center');

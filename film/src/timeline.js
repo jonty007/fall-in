@@ -130,7 +130,7 @@ const SCRIMS = [
   { t0: 6.8, t1: 12.6, rect: [500, 840, 1420, 1010], k: 0.5 },
   { t0: 33.0, t1: 38.6, rect: [40, 70, 1000, 250], k: 0.62 },
   { t0: 49.2, t1: 59.4, rect: [1300, 340, 1760, 860], k: 0.5 },   // a soft local scrim under the diagram only
-  { t0: 62.2, t1: 75.4, rect: [380, 60, 1540, 290], k: 0.62 },
+  { t0: 62.2, t1: 76.6, rect: [380, 40, 1540, 250], k: 0.62 },
 ];
 
 export function scrimsAt(t) {
@@ -179,18 +179,18 @@ export const CUES = [
   { t0: 49.4, t1: 59.2, kind: 'headline', text: 'The last stable orbit', x: 1200, y: 150 },
   { t0: 50.6, t1: 58.8, kind: 'caption', text: 'Inside 3 rₛ, matter plunges in.', x: 1200, y: 214 },
 
-  { t0: 62.6, t1: 67.0, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
-  { t0: 63.0, t1: 67.0, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
-  { t0: 69.0, t1: 73.6, kind: 'headline', text: 'How *Interstellar* showed it', x: 960, y: 150, align: 'center' },
-  { t0: 69.4, t1: 73.6, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
-  { t0: 73.5, t1: 76.7, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
+  { t0: 62.6, t1: 67.0, kind: 'headline', text: 'One side is brighter', x: 960, y: 110, align: 'center' },
+  { t0: 63.0, t1: 67.0, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 174, align: 'center' },
+  { t0: 69.0, t1: 73.6, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 110, align: 'center' },
+  { t0: 69.4, t1: 73.6, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 174, align: 'center' },
+  { t0: 73.5, t1: 76.7, kind: 'headline', text: 'And back to the real view', x: 960, y: 110, align: 'center' },
 
   { t0: 81.3, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
   { t0: 81.5, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
 
   { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
-  { t0: 95.4, t1: 99.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
-  { t0: 99.8, t1: 104.2, kind: 'caption', text: 'Like M87* (EHT, 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
+  { t0: 96.0, t1: 99.6, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
+  { t0: 100.0, t1: 104.2, kind: 'caption', text: 'Like M87* (EHT 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
 
   // the 3 s end card: in by 105.4 s, held, then picture and type fade out together to black by 107.85 s
   { t0: 104.9, t1: 107.85, kind: 'title', text: 'FALL IN', x: 960, y: 812, align: 'center', fade: 0.55 },
