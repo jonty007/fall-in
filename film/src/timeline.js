@@ -54,29 +54,31 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const CAM = [
   // hook: slow push-in, hole centred, stars warping into a ring
   [0.0, 170, 86.0, -22, 0, 0, 0, 30, 24],
-  [7.0, 66, 85.0, -13, 0, 0, 0, 30, 24],
-  // title: push continues, camera lifts slightly
-  [12.6, 40, 84.0, -4, 0, 0, 0, 31, 23],
-  // gravity bends light: hole on the left third, panel on the right
-  [15.4, 27.5, 82.0, 12, -9.5, 1.0, 0, 42, 22],
-  [29.2, 24.5, 81.5, 24, -8.5, 1.0, 0, 42, 22],
-  // photon sphere: closer, tighter lens on the shadow edge
-  [33.0, 15.0, 77.5, 36, -5.5, 0.5, 0, 30, 21],
-  [45.2, 13.4, 75.0, 52, -5.0, 0.5, 0, 25, 21],
+  [7.0, 82, 85.4, -13, 0, 0, 0, 30, 24],
+  // title: push continues
+  [12.6, 54, 85.2, -4, 0, 0, 0, 29, 23],
+  // gravity bends light: just outside the disk's rim, 5 deg above its plane, so the far
+  // side shows both over and under the shadow; hole on the left third, panel on the right
+  [15.4, 47, 85.0, 8, -9.5, 0.4, 0, 27, 22],
+  [29.2, 42, 84.8, 20, -8.8, 0.4, 0, 27, 22],
+  // photon sphere: closer, the thin photon ring separates from the disk
+  [33.0, 36.0, 74.0, 36, -10.0, 0.3, 0, 30, 18],
+  [45.2, 31.5, 71.0, 56, -9.5, 0.3, 0, 28, 18],
   // innermost stable orbit: from above, the gap between shadow and inner edge
-  [49.2, 18.5, 59.0, 66, -7.0, 0, 0, 44, 20],
-  [59.2, 17.5, 55.0, 78, -6.5, 0, 0, 44, 20],
+  [49.2, 25.0, 61.0, 70, -10.0, 0, 0, 44, 13],
+  [59.2, 22.5, 57.0, 82, -9.5, 0, 0, 44, 13],
   // doppler: almost edge-on, centred
   [62.6, 24.0, 86.0, 92, 0, 0, 0, 40, 21],
   [75.2, 22.0, 85.5, 102, 0, 0, 0, 40, 21],
-  // close orbit: dive to 1.7 rs, swing around, closest at 86 s
-  [80.5, 6.5, 80.0, 132, 22, 0, 6, 62, 20],
-  [86.0, 3.4, 76.0, 178, 58, 0, 10, 78, 20],
-  [87.0, 3.45, 76.0, 186, 58, 0, 10, 78, 20],
-  // payoff: pull far back, 17 degrees from the axis (the angle we see M87* at)
-  [91.6, 300, 17.0, 226, 0, 0, 0, 11, 20],
-  [104.8, 330, 17.0, 236, 0, 0, 0, 10.5, 20],
-  [108.0, 340, 17.0, 238, 0, 0, 0, 10.5, 20],
+  // close orbit: dive to 1.7 rs and look up along the edge of the shadow; closest at 86 s
+  [80.5, 7.0, 82.0, 140, 0, 24, 4, 58, 9],
+  [86.0, 3.4, 80.0, 190, 0, 68, 0, 82, 3.6],
+  [87.0, 3.42, 80.0, 196, 0, 69, 0, 82, 3.6],
+  // payoff: pull far back, 17 degrees from the axis (the angle we see M87* at);
+  // rolled so the Doppler-bright side is at the bottom, as in the 2017 EHT image
+  [91.6, 300, 17.0, 226, 0, 0, 90, 11, 34],
+  [104.8, 330, 17.0, 236, 0, 0, 90, 10.5, 34],
+  [108.0, 340, 17.0, 238, 0, 0, 90, 10.5, 34],
 ];
 const ch = (k) => CAM.map((row) => [row[0], k === 1 ? Math.log(row[1]) : row[k]]);
 const CH = { r: ch(1), incl: ch(2), az: ch(3), yaw: ch(4), pitch: ch(5), roll: ch(6), fov: ch(7), exposure: ch(8) };
@@ -102,6 +104,33 @@ const WIPE = [[60, 0], [66.0, 0], [68.2, 1.04], [71.4, 1.04], [73.8, 0], [76, 0]
 // Telescope blur divider for the payoff: blurred to the right of the divider.
 const TELE = [[90, 1.05], [95.2, 1.05], [98.6, -0.05], [108, -0.05]];
 
+// Brighter background sky on the dive: the static observer deep in the potential sees
+// starlight blueshifted (already in the shader); this extra gain keeps the lensed
+// star rings readable at the low exposure the nearby disk forces.
+const STARS = [[0, 1], [76, 1], [82, 3.2], [86, 5], [88, 5], [91.6, 1], [108, 1]];
+
+// Soft darkening behind text blocks (design px rects: x0, y0, x1, y1, strength)
+const SCRIMS = [
+  { t0: 15.4, t1: 29.2, rect: [40, 70, 1020, 260], k: 0.45 },
+  { t0: 15.4, t1: 29.2, rect: [40, 880, 900, 1010], k: 0.45 },
+  { t0: 33.0, t1: 45.4, rect: [40, 70, 1020, 260], k: 0.45 },
+  { t0: 33.0, t1: 45.4, rect: [40, 860, 1000, 1030], k: 0.55 },
+  { t0: 49.2, t1: 59.4, rect: [40, 70, 1020, 260], k: 0.6 },
+  { t0: 49.2, t1: 59.4, rect: [40, 860, 1000, 1030], k: 0.6 },
+  { t0: 61.4, t1: 75.2, rect: [420, 70, 1500, 300], k: 0.5 },
+  { t0: 61.4, t1: 75.2, rect: [40, 860, 1000, 1030], k: 0.55 },
+  { t0: 80.6, t1: 86.0, rect: [40, 70, 1020, 260], k: 0.5 },
+];
+
+export function scrimsAt(t) {
+  const out = [];
+  for (const s of SCRIMS) {
+    const a = smoothstep(s.t0, s.t0 + 0.8, t) * (1 - smoothstep(s.t1 - 0.8, s.t1, t));
+    if (a > 0) out.push({ rect: s.rect, k: s.k * a });
+  }
+  return out.slice(0, 3);
+}
+
 export function effectsAt(t) {
   const wipeX = monotone(WIPE, t);
   const teleX = monotone(TELE, t);
@@ -112,6 +141,7 @@ export function effectsAt(t) {
     teleSplit: [teleX, 0.006, t > 94 ? 1 : 0, 0],
     fade: fadeIn * fadeOut,
     diskTime: 60 + t * 11,
+    starBoost: monotone(STARS, t),
   };
 }
 
@@ -138,7 +168,7 @@ export const CUES = [
   { t0: 61.6, t1: 75.0, kind: 'headline', text: 'One side is brighter', x: 960, y: 150, align: 'center' },
   { t0: 62.6, t1: 66.6, kind: 'caption', text: 'The side moving toward you is brighter.', x: 960, y: 214, align: 'center' },
   { t0: 68.0, t1: 73.0, kind: 'caption', text: 'Interstellar left this out, on purpose.', x: 960, y: 214, align: 'center' },
-  { t0: 68.4, t1: 73.0, kind: 'cite', text: 'James, von Tunzelmann, Franklin & Thorne · Class. Quantum Grav. 32, 065001 (2015)', x: 960, y: 1008, align: 'center' },
+  { t0: 68.4, t1: 73.0, kind: 'cite', text: 'James, von Tunzelmann, Franklin & Thorne · Class. Quantum Grav. 32, 065001 (2015)', x: 960, y: 262, align: 'center' },
 
   { t0: 80.8, t1: 85.6, kind: 'headline', text: '1.7 rₛ from the centre', x: 120, y: 150 },
   { t0: 81.6, t1: 85.6, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 214 },

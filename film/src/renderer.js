@@ -29,7 +29,7 @@ function program(gl, vs, fsSrc) {
   return { p, u: uniforms };
 }
 
-function target(gl, w, h) {
+function makeTex(gl, w, h) {
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
@@ -37,12 +37,23 @@ function target(gl, w, h) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return tex;
+}
+// attachments: 1 (default) or 2 (scene: full image + disk-only image)
+function target(gl, w, h, attachments = 1) {
+  const tex = makeTex(gl, w, h);
   const fb = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  let tex2 = null;
+  if (attachments === 2) {
+    tex2 = makeTex(gl, w, h);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, tex2, 0);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  }
   const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
   if (st !== gl.FRAMEBUFFER_COMPLETE) throw new Error('FBO incomplete ' + st);
-  return { tex, fb, w, h };
+  return { tex, tex2, fb, w, h };
 }
 
 export class Renderer {
@@ -89,7 +100,7 @@ export class Renderer {
   resize(w, h) {
     const gl = this.gl;
     this.w = w; this.h = h;
-    this.sceneT = target(gl, w, h);
+    this.sceneT = target(gl, w, h, 2);
     this.bloomDown = [];
     this.bloomUp = [];
     let bw = Math.ceil(w / 2), bh = Math.ceil(h / 2);
@@ -191,11 +202,12 @@ export class Renderer {
 
     // telescope blur (only when used)
     if (s.teleSplit[2] > 0) {
+      // the telescope view uses the disk-only image: a radio interferometer sees no starlight
       const chain = [this.half, this.quarter, this.teleA];
       let src2 = this.sceneT;
       for (const dst of chain) {
         this.pass(this.down, dst, (u) => {
-          this.bindTex(0, src2.tex, u.uSrc);
+          this.bindTex(0, src2 === this.sceneT ? this.sceneT.tex2 : src2.tex, u.uSrc);
           gl.uniform2f(u.uSrcTexel, 1 / src2.w, 1 / src2.h);
           gl.uniform1f(u.uThreshold, -1);
           gl.uniform1f(u.uKnee, 1);
@@ -229,6 +241,14 @@ export class Renderer {
       gl.uniform1f(u.uGrainPx, s.grainPx);
       gl.uniform1f(u.uVignette, s.vignette);
       gl.uniform3fv(u.uLook, s.look);
+      const rects = new Float32Array(12), ks = new Float32Array(3);
+      (s.scrims || []).slice(0, 3).forEach((sc, i) => {
+        const [x0, y0, x1, y1] = sc.rect; // design px, y down
+        rects.set([x0 / 1920, 1 - y1 / 1080, x1 / 1920, 1 - y0 / 1080], i * 4);
+        ks[i] = sc.k;
+      });
+      gl.uniform4fv(u['uScrim[0]'], rects);
+      gl.uniform1fv(u['uScrimK[0]'], ks);
     });
   }
 

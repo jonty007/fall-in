@@ -81,6 +81,8 @@ uniform float uFade;         // global fade to black (1 = visible)
 uniform float uFrame;        // integer frame index for grain
 uniform float uGrainPx;      // device pixels per output pixel (grain cell size)
 uniform float uVignette;
+uniform vec4  uScrim[3];    // soft darkening behind text: rect in uv (x0, y0, x1, y1)
+uniform float uScrimK[3];
 uniform vec3  uLook;        // x: AgX look power, y: saturation, z: 1 = ACES (Hill fit) instead of AgX
 
 // AgX (Troy Sobotka), polynomial sigmoid fit by Benjamin Wrensch
@@ -137,6 +139,17 @@ void main() {
     col = mix(col, texture(uTele, vUv).rgb, m);
   }
   col += texture(uBloom, vUv).rgb * uBloomStrength;
+
+  // soft scrims behind text blocks (a graded darkening, no edges, no blur of the image)
+  for (int i = 0; i < 3; i++) {
+    if (uScrimK[i] <= 0.0) continue;
+    vec4 R = uScrim[i];
+    vec2 c = 0.5 * (R.xy + R.zw), hs = 0.5 * (R.zw - R.xy);
+    vec2 dd = (abs(vUv - c) - hs) * vec2(uRes.x / uRes.y, 1.0);
+    float dist = length(max(dd, 0.0)) + min(max(dd.x, dd.y), 0.0);
+    float m = 1.0 - smoothstep(-0.04, 0.09, dist);
+    col *= 1.0 - uScrimK[i] * m;
+  }
 
   // vignette (natural cos^4-like falloff, very gentle)
   vec2 q = (vUv - 0.5) * vec2(uRes.x / uRes.y, 1.0);

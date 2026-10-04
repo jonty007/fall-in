@@ -29,7 +29,8 @@ uniform float uGalaxyGain;
 uniform float uSpin;        // +1 / -1 direction of disk rotation about +y
 uniform sampler2D uLut;     // row 0: blackbody, row 1: disk temperature profile
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out vec4 fragDisk;   // disk light only (for the telescope view)
 
 const float PI = 3.14159265358979;
 const int   MAX_STEPS = 1100;
@@ -383,7 +384,7 @@ void trace(vec3 d, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh, o
   Dsky = escaped ? (cos(phiEsc) * e1 + sin(phiEsc) * e2) : d;
 }
 
-vec3 shade(Hit h0, Hit h1, Hit h2, int nh, vec3 fp, bool escaped, vec3 Dsky, Lens L, float gsky) {
+vec3 shade(Hit h0, Hit h1, Hit h2, int nh, vec3 fp, bool escaped, vec3 Dsky, Lens L, float gsky, out vec3 diskOnly) {
   vec3 col = vec3(0.0);
   float trans = 1.0;
   for (int k = 0; k < 3; k++) {
@@ -396,6 +397,7 @@ vec3 shade(Hit h0, Hit h1, Hit h2, int nh, vec3 fp, bool escaped, vec3 Dsky, Len
     col += trans * ds.rgb;
     trans *= 1.0 - ds.a;
   }
+  diskOnly = col;
   if (escaped && trans > 0.003) col += trans * sky(Dsky, L, gsky);
   return col;
 }
@@ -428,7 +430,8 @@ void main() {
   L.area = max(length(cross(L.dx, L.dy)), pixAng * pixAng / 400.0);   // cap the magnification (finite stellar size)
   L.ok = (abs(dFdx(esc)) + abs(dFdy(esc)) < 0.5) ? 1.0 : 0.0;
 
-  vec3 col = shade(h0, h1, h2, nh, fp, escaped, Dsky, L, gsky);
+  vec3 dcol;
+  vec3 col = shade(h0, h1, h2, nh, fp, escaped, Dsky, L, gsky, dcol);
 
   // adaptive supersampling of the photon ring: rays whose impact parameter is within
   // 10 % of the critical value sqrt(27) M form the exponentially thin higher-order images
@@ -442,13 +445,18 @@ void main() {
       vec3 ds = normalize(uCamFwd + uTanHalfFov * (ps.x * uCamRight + ps.y * uCamUp));
       Hit s0, s1, s2; int ns; bool es; vec3 Ds; float bs;
       trace(ds, wipe, s0, s1, s2, ns, es, Ds, bs);
-      col += shade(s0, s1, s2, ns, fp * 0.5, es, Ds, Ls, gsky);
+      vec3 dsub;
+      col += shade(s0, s1, s2, ns, fp * 0.5, es, Ds, Ls, gsky, dsub);
+      dcol += dsub;
     }
     col /= 5.0;
+    dcol /= 5.0;
   }
 
   if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
+  if (any(isnan(dcol)) || any(isinf(dcol))) dcol = vec3(0.0);
   fragColor = vec4(max(col, vec3(0.0)), 1.0);
+  fragDisk = vec4(max(dcol, vec3(0.0)), 1.0);
 }
 `;
 
