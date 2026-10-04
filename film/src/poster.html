@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>FALL IN — poster</title>
+<link rel="stylesheet" href="/node_modules/@fontsource/cormorant-garamond/500.css">
 <link rel="stylesheet" href="/node_modules/@fontsource/cormorant-garamond/400-italic.css">
 <link rel="stylesheet" href="/node_modules/@fontsource/jost/300.css">
 <link rel="stylesheet" href="/node_modules/@fontsource/jost/400.css">
@@ -27,7 +28,7 @@ for (const c of [gl, ui]) { c.width = Math.round(innerWidth * dpr); c.height = M
 const R = new Renderer(gl);
 
 await Promise.all([
-  document.fonts.load('italic 400 70px "Cormorant Garamond"'),
+  document.fonts.load('italic 400 70px "Cormorant Garamond"'), document.fonts.load('500 150px "Cormorant Garamond"'),
   document.fonts.load('300 132px "Jost"'), document.fonts.load('400 30px "Jost"'),
   document.fonts.load('400 22px "IBM Plex Mono"'),
 ]);
@@ -48,15 +49,15 @@ window.render = async () => {
     ctx.restore();
   };
   text('What would you actually see?', 'italic 400 62px "Cormorant Garamond"', '#FFF3E3', 600, 1342, '0.01em');
-  text('FALL IN', '300 168px "Jost"', '#FFF3E3', 600, 1540, '0.32em');
+  text('FALL IN', '500 176px "Cormorant Garamond"', '#FFF3E3', 600, 1540, '0.14em');
   text('A black hole, ray-traced with real light-bending maths', '400 30px "Jost"', '#FFF3E3', 600, 1640, '0.02em', 0.82);
   text('Made by @vivekst1 with Claude Opus 5.5 from one prompt', '400 26px "Jost"', '#FFF3E3', 600, 1722, '0.04em', 0.7);
   const pos = sph(84, 85.4, -8);
   const basis = lookBasis(pos, { pitch: -6.0 });
   await R.render({
-    ...basis, fov: 31, diskTime: 760, tPeak: 4300, rIn: 6, rOut: 30, wipe: [0.5, 0.004, 0, 1],
+    ...basis, fov: 31, diskTime: 760, tPeak: 4500, rIn: 6, rOut: 30, wipe: [0.5, 0.004, 0, 1],
     diskGain: 1, starGain: 1.0, galaxyGain: 0.0005, spin: 1, exposure: 9.6, bloomThreshold: 2.4, bloomStrength: 0.12,
-    teleSplit: [0.5, 0.01, 0, 0], teleSigmaPx: 10, fade: 1, frame: 7, grainPx: dpr, vignette: 0.32, look: [1, 1, 1],
+    teleSplit: [0.5, 0.01, 0, 0], teleSigmaPx: 10, fade: 1, frame: 7, grainPx: dpr, vignette: 0.32, look: [1, 0.85, 1], compress: [0.35, 0.6],
     scrims: [],
   }, { tileRows: 160, ui });
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

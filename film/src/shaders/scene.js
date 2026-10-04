@@ -142,10 +142,11 @@ vec2 diskLayer(float r, float ang, float lr, float age, float seed, float lod) {
   float knot = smoothstep(0.45, 0.85, snoise(p1 * 2.3 + vec3(9.1, 2.7, seed))) * (1.0 - smoothstep(0.2, 0.9, lod * 1.5));
   // dark filaments: ridges of a warped mid-scale field, faded out before they alias
   // (long and thin along the flow, and sparse: only the strongest ridges, gated by the clumps)
-  vec3 pl = vec3(cs * 3.6, lr * 15.0 + seed * 4.7 + warp * 0.6);
-  float ridge = 1.0 - abs(snoise(pl));
-  float lane = smoothstep(0.90, 0.985, ridge) * smoothstep(-0.1, 0.35, snoise(p1 * 1.3 + vec3(3.3, seed, 1.9)))
-             * (1.0 - smoothstep(0.15, 0.6, lod * 2.2));
+  // (broad, soft and smooth along the flow: they should read as cooler gas, not as hairs)
+  vec3 pl = vec3(cs * 2.6, lr * 10.0 + seed * 4.7 + warp * 0.4);
+  float ridge = 1.0 - abs(fbm3(pl, lod * 0.8) * 1.6);
+  float lane = smoothstep(0.78, 0.97, ridge) * smoothstep(-0.1, 0.35, snoise(p1 * 1.3 + vec3(3.3, seed, 1.9)))
+             * (1.0 - smoothstep(0.15, 0.6, lod * 1.6));
   return vec2(big * 0.9 + mid * 0.4 + streak * 0.17 + wisp * 0.07 + knot * 0.7, lane);
 }
 
@@ -181,10 +182,10 @@ vec4 diskSample(vec3 P, float r, float cosInc, float g, float lod) {
   float outer = 1.0 - smoothstep(uRout * 0.5, uRout, r);
   outer *= outer;
   // optically thick body (thin disks are), more translucent toward the outer edge
-  float dens = inner * clamp(0.9 + 1.1 * n, 0.12, 1.8) * (1.0 - 0.6 * lane);
+  float dens = inner * clamp(0.9 + 1.1 * n, 0.12, 1.8) * (1.0 - 0.45 * lane);
   float tau = 4.0 * dens / max(abs(cosInc), 0.08);
   float alpha = (1.0 - exp(-tau)) * outer;
-  float T = uTpeak * diskProfile(r) * (0.9 + 0.26 * clamp(n, -1.0, 1.0)) * (1.0 - 0.16 * lane) * g;
+  float T = uTpeak * diskProfile(r) * (0.9 + 0.26 * clamp(n, -1.0, 1.0)) * (1.0 - 0.12 * lane) * g;
   vec3 em = blackbody(T) * uDiskGain;
   return vec4(em * alpha, alpha);
 }

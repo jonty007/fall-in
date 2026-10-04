@@ -57,6 +57,7 @@ npm run serve      # then open http://127.0.0.1:5173/film/src/index.html?t=42 to
 node film/scripts/poster.mjs          # portrait poster → film/out/poster.jpg
 node film/scripts/measure.mjs --times=24.5,55.5   # exposure check: clipped-white %, body median, p99
 node film/scripts/verify.mjs film/out/film_16x9.mp4   # checks the file against the delivery spec, grabs frames
+node film/scripts/layout.mjs        # text layer only: reports any label touching a path or leaving the safe area
 ```
 
 Every frame is a pure function of time: the page exposes `window.seek(t)` (returns when the frame is fully drawn)
@@ -68,14 +69,17 @@ hashing, so the same `t` gives the same image on any machine.
 * **Light paths** (`film/src/shaders/scene.js`). Each pixel's ray lies in a plane through the hole, where the photon
   orbit obeys `u'' = 3Mu² − u` (u = 1/r). It is integrated with RK4 in φ with adaptive steps (fine near the photon
   sphere); disk crossings and the escape direction are found exactly on the cubic Hermite interpolant of the RK4
-  state, so there are no stepping bands. Rays near the critical impact parameter (the photon ring) get 4× adaptive
+  state, so there are no stepping bands. Rays near the critical impact parameter (the photon ring) get 8× adaptive
   supersampling. The camera is a static observer, so the shadow has its true size even at 1.7 rₛ.
-* **Disk**. Page–Thorne flux (verified against the closed form), T_peak 3600 K, Keplerian rotation, turbulence
-  sheared by differential rotation, redshift `g = 1/[√(1−2M/r_cam)·uᵗ·(1 − Ω b_z)]`; the observed colour is the
+* **Disk**. Page–Thorne flux (verified against the closed form), T_peak 4500 K, Keplerian rotation, turbulence
+  (clumps, sparse dark filaments, hot knots) sheared by differential rotation for a bounded time, redshift `g = 1/[√(1−2M/r_cam)·uᵗ·(1 − Ω b_z)]`; the observed colour is the
   Planck spectrum at gT through the CIE 1931 colour-matching functions.
-* **Stars**. Three procedural layers with realistic number counts and blackbody colours, drawn through the local
-  Jacobian of the lens map so they stay anti-aliased and stretch into arcs near the Einstein ring.
-* **Image**. HDR (RGBA16F) → bloom on the hottest regions only → ACES filmic → grade → vignette → grain + dither.
+* **Stars**. Four procedural layers with realistic number counts and blackbody colours, drawn through the local
+  Jacobian of the lens map so they stay anti-aliased and stretch into arcs near the Einstein ring, with motion
+  blur from the camera's rotation about the hole mapped through the same Jacobian (180° shutter).
+* **Image**. HDR (RGBA16F) → bloom on the hottest regions only → highlight compression of the disk light (log
+  space, chromaticity kept; the disk spans ≈ 12 stops) → ACES filmic → warm-only saturation → vignette → grain +
+  dither.
   Text and diagrams are drawn on their own 2D canvas (never blurred or graded) and blended in the very last WebGL
   pass, so every captured frame pairs the picture with the text of the same instant.
 * **Ray differentials**. Alongside each ray the shader integrates the Jacobi field `j'' = (6u − 1) j`, which gives
