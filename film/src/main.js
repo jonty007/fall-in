@@ -33,11 +33,11 @@ export function frameState(t) {
       ...basis,
       fov: cam.fov,
       diskTime: fx.diskTime,
-      tPeak: 3600, rIn: 6, rOut: 30,
+      tPeak: 4300, rIn: 6, rOut: 30,
       wipe: fx.wipe,
-      diskGain: 1, starGain: fx.starBoost, galaxyGain: 0.0007 * Math.pow(fx.starBoost, 0.9), spin: 1,
-      exposure: cam.exposure,
-      bloomThreshold: 2.2, bloomStrength: 0.09,
+      diskGain: 1, starGain: fx.starBoost, galaxyGain: 0.0005 * Math.pow(fx.starBoost, 0.9), spin: 1,
+      exposure: cam.exposure * fx.dim,
+      bloomThreshold: 2.4, bloomStrength: 0.12,
       teleSplit: fx.teleSplit, teleSigmaPx,
       fade: fx.fade,
       frame: Math.round(t * FPS),
@@ -70,3 +70,7 @@ await Promise.all([
 ]);
 await document.fonts.ready;
 window.ready = true;
+
+// viewing aid: ?t=42 shows that moment (the renderer itself always calls seek explicitly)
+const qt = new URLSearchParams(location.search).get('t');
+if (qt !== null) window.seek(Number(qt));

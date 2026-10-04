@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FALL IN — poster</title>
+<link rel="stylesheet" href="/node_modules/@fontsource/cormorant-garamond/400-italic.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/jost/300.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/jost/400.css">
+<link rel="stylesheet" href="/node_modules/@fontsource/ibm-plex-mono/400.css">
+<style>
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  canvas { position: absolute; left: 0; top: 0; width: 100vw; height: 100vh; display: block; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="ui"></canvas>
+<script type="module">
+// Portrait poster (2:3) rendered with the film's own shader and type.
+import { Renderer } from './renderer.js';
+import { sph, lookBasis } from './camera.js';
+
+const gl = document.getElementById('gl'), ui = document.getElementById('ui');
+const dpr = devicePixelRatio;
+for (const c of [gl, ui]) { c.width = Math.round(innerWidth * dpr); c.height = Math.round(innerHeight * dpr); }
+const R = new Renderer(gl);
+
+await Promise.all([
+  document.fonts.load('italic 400 70px "Cormorant Garamond"'),
+  document.fonts.load('300 132px "Jost"'), document.fonts.load('400 30px "Jost"'),
+  document.fonts.load('400 22px "IBM Plex Mono"'),
+]);
+
+window.render = async () => {
+  const pos = sph(84, 85.4, -8);
+  const basis = lookBasis(pos, { pitch: -6.0 });
+  await R.render({
+    ...basis, fov: 31, diskTime: 760, tPeak: 3600, rIn: 6, rOut: 30, wipe: [0.5, 0.004, 0, 1],
+    diskGain: 1, starGain: 1.3, galaxyGain: 0.0006, spin: 1, exposure: 24, bloomThreshold: 2.2, bloomStrength: 0.1,
+    teleSplit: [0.5, 0.01, 0, 0], teleSigmaPx: 10, fade: 1, frame: 7, grainPx: dpr, vignette: 0.32, look: [1, 1, 1],
+    scrims: [],
+  }, { tileRows: 160 });
+  // type, in a 1200 x 1800 design space
+  const ctx = ui.getContext('2d');
+  const s = ui.width / 1200;
+  ctx.setTransform(s, 0, 0, s, 0, 0);
+  ctx.clearRect(0, 0, 1200, 1800);
+  const text = (str, font, color, x, y, spacing, alpha = 1) => {
+    ctx.save();
+    ctx.font = font; ctx.letterSpacing = spacing; ctx.textAlign = 'center'; ctx.fillStyle = color; ctx.globalAlpha = alpha;
+    const em = parseFloat(spacing), px = parseFloat(font.match(/(\d+)px/)[1]);
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 30;
+    ctx.fillText(str, x + (em * px) / 2, y);
+    ctx.shadowBlur = 0; ctx.fillText(str, x + (em * px) / 2, y);
+    ctx.restore();
+  };
+  text('What would you actually see?', 'italic 400 62px "Cormorant Garamond"', '#FFF3E3', 600, 1342, '0.01em');
+  text('FALL IN', '300 168px "Jost"', '#FFF3E3', 600, 1540, '0.5em');
+  text('A BLACK HOLE, RAY-TRACED WITH REAL LIGHT-BENDING MATHS', '400 22px "IBM Plex Mono"', '#BFD4FF', 600, 1640, '0.16em', 0.85);
+  text('Made by @vivekst1 with Claude Opus 5.5 from one prompt', '400 26px "Jost"', '#FFF3E3', 600, 1722, '0.04em', 0.7);
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+};
+window.ready = true;
+</script>
+</body>
+</html>

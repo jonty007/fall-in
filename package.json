@@ -1,18 +1,23 @@
 {
   "name": "fall-in",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "FALL IN — a 108-second film flying into a Schwarzschild black hole, ray-traced with real geodesics",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "setup": "playwright install chromium",
+    "render": "node film/scripts/render.mjs",
+    "render:cpu": "node film/scripts/render.mjs --cpu",
+    "preview": "node film/scripts/render.mjs --preview",
+    "audio": "node film/scripts/audio.mjs",
+    "stills": "node film/scripts/stills.mjs",
+    "contact": "node film/scripts/contact.mjs",
+    "strip": "node film/scripts/strip.mjs",
+    "serve": "node film/scripts/serve.mjs"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jonty007/fall-in.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "bugs": {
     "url": "https://github.com/jonty007/fall-in/issues"
   },
@@ -25,5 +30,6 @@
     "ffprobe-static": "3.1.0",
     "playwright": "1.56.1"
   },
-  "type": "module"
+  "type": "module",
+  "private": true
 }

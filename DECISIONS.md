@@ -79,3 +79,111 @@ bottom of each heading.
     exponentially thin higher-order images, which point-sampled into a dotted line. Those pixels (a thin annulus)
     trace four extra rotated-grid rays. The disk's inner edge is also filtered by coverage.
 20. **Look-dev stills** saved in `film/out/lookdev/` (far view, edge-on hero, high view).
+
+## Film structure, camera and text
+
+21. **One continuous flight, no cuts.** Camera keyframes per channel (log r, inclination, azimuth, yaw, pitch, roll,
+    FOV, exposure) interpolated with monotone cubic (Fritsch–Carlson) splines: C¹, never overshoots, and eases
+    naturally where a fast move meets a slow drift. No channel ever stops dead inside a shot.
+22. **Gravity beat placed just outside the disk's rim (r ≈ 45 M, 5° above the plane)** so the far side of the disk
+    is visible both over and under the shadow. From inside the rim the near disk hides the lower image — the
+    side-panel ray tracer showed no "under" rays at 8° from 26 M, so the shot was moved rather than the caption
+    fudged.
+23. **Close orbit framed as a "shadow horizon".** At 1.7 rₛ the camera pitches up 68° from the hole so the shadow
+    edge runs across the frame: shadow below, the disk band and the lensed galaxy arcing above. Looking at the hole
+    itself would fill the frame with black (the shadow's half-angle is 78.7° there). The disk light is
+    blueshifted ×1.5 for the static camera, so exposure drops to 3.6; the background star gain is raised ×5 on the
+    dive so the lensed star rings stay readable (stated here because it is a lighting choice, not physics).
+24. **Payoff at 17° from the axis**, rolled 90° so the Doppler-bright side is at the bottom like the 2017 M87*
+    image. The telescope view blurs a disk-only render target (a second MRT output) with a Gaussian of
+    FWHM = 20/42 of the ring diameter — the EHT's ≈ 20 µas resolution relative to its 42 µas ring. Stars are not in
+    the telescope view because a 1.3 mm interferometer would not see them.
+25. **Text legibility over a bright disk**: soft graded scrims (a smooth darkening of the image under text blocks,
+    no edges, no blur) plus a dark halo behind glyphs. Glyphs are drawn twice (halo pass, then clean pass) so they
+    stay crisp.
+26. **Typography**: Cormorant Garamond for headlines (italic for the opening question), Jost for title/captions,
+    IBM Plex Mono for readouts and diagram labels. Headlines 64–70 px, captions 38 px, title 132 px.
+27. **Side panels are computed, not drawn**: the same photon-orbit equation (RK4 in the orbital plane) traces the
+    light paths; the ISCO panel integrates timelike geodesics (`u'' = 1/L² − u + 3u²`) for a stable precessing orbit
+    starting at 3.4 rₛ and a plunge starting at 2.9 rₛ.
+28. **Readouts are live formulas**: photon-sphere radius from the maximum of the photon potential (1.500 rₛ),
+    ISCO from dL/dr = 0 (3.000 rₛ, v = 0.500 c), g = 1.41/0.47 and the g⁴ ratio (81×) from the redshift formula,
+    clock rate √(1 − rₛ/r) and starlight blueshift from the camera radius.
+
+## Score
+
+29. **Synthesised in plain Node.js** (no samples, no Web Audio dependency) so `npm run audio` is deterministic and
+    runs anywhere. 48 kHz float, written as 32-bit float WAV, encoded to AAC 256k at mux time.
+30. **Harmony**: D minor (Dm9 – B♭maj7 – Gm9 – Asus4/A), a darker Neapolitan colour (E♭/D) for the ISCO, an F-major
+    lift for the Doppler beat, a D–E♭ cluster on the dive, B♭maj9 swell after the silence, final D major (Picardy
+    third). Original motif D–A–B♭–F–E on an FM glass voice at the title, the photon sphere (octave up) and the payoff
+    (in octaves).
+31. **Heartbeat = the film's clock**: 60 bpm so beats land on whole seconds (every beat boundary in the timeline is a
+    whole second), slowing geometrically on the dive, last beat at 83.3 s, true digital silence 86.0–87.0 s
+    (20 ms fades), swell at 87.0 s.
+32. **Sound effects follow the pictures**: ticks when each traced ray reaches "you" in the gravity panel; a glassy
+    tone whose stereo position follows the circling ray in the photon panel; a chirp whose pitch follows the
+    plunging particle's orbital frequency (and pans with it) ending in a thump at the horizon; filtered-noise
+    pass-bys that follow the Doppler wipe across the screen; a rumble building to the closest point.
+33. **Mastering**: 26 Hz high-pass ×2, −1.5 dB at 280 Hz, +1 dB air shelf, mid/side widening above 160 Hz (lows
+    mono), 1.6:1 glue compression, then gain + look-ahead true-peak limiter iterated to −14.0 LUFS integrated with a
+    −1.5 dBTP ceiling (margin for AAC). Verified independently with ffmpeg's `ebur128`. A dynamic arc is written into
+    the mix (≈ −25 LUFS short-term in the intro, ≈ −16 in the build, −10 at the swell) instead of flat loudness.
+34. **Spectrogram on a linear frequency axis**: ffmpeg 7's `showspectrumpic` log-frequency labels are wrong (a
+    36.7 Hz test sine is drawn at "≈ 800 Hz"), which first looked like a spurious tone; per-bus Goertzel checks
+    confirmed the audio is clean.
+
+## Delivery encode
+
+35. **Intermediate**: x264 4:4:4 10-bit CRF 4 per 5 s chunk, after Lanczos 2×→1× downscale and an explicit BT.709
+    matrix (swscale defaults to BT.601). sRGB-encoded frames are treated as display-referred R'G'B' (no transfer
+    conversion), the common practice for screen-referred content tagged BT.709.
+36. **Final**: CRF 17 / preset slow / High / yuv420p as specified, plus a VBV cap (6.5 Mb/s max, 13 Mb buffer) that
+    only engages if a passage would push the file past 95 MB.
+
+## Review rounds
+
+Each round: a full-resolution still per beat, a contact sheet (one frame every 2 s), and a 1 s full-resolution
+strip of the busiest moment, reviewed by a fresh subagent that has not seen the code, acting as a harsh
+motion-design art director (with 100 % crops). Material is kept in `film/review/roundN/`.
+
+### Round 1 — five worst findings and what was done
+
+1. **Diagram panels were dark UI cards with HUD corner brackets, and three beats in a row used the same
+   slide-like layout.** → Cards, brackets and tracked-caps titles removed. Diagrams are drawn on an offscreen
+   layer and composited through a soft elliptical mask (lines fade out, never clipped), with an image-level
+   graded darkening behind them. Labels get a soft black knockout so lines never cut through text. Layout now
+   differs per beat: side diagram (gravity), full-frame diagram interlude over the dimmed shot (photon
+   sphere), small corner inset (ISCO), no diagram (Doppler, close orbit).
+2. **Disk read as sepia wood grain: one hue, no white-hot range, no bloom, barcode stripes.** → T_peak raised
+   to 4300 K with exposures cut ×0.4, so Doppler-boosted gas really goes white-hot and blooms while the body
+   stays ember orange and the cool outer disk falls to deep red-black (the dim receding side now glows instead
+   of reading as a black slab). Mid-tone saturation grade after ACES. Turbulence: three cross-faded layers
+   with variance-preserving normalisation, shorter shear lifetime, stronger clumps, weaker fine streaks,
+   gentler spiral pitch.
+3. **Aliasing: quad-stepped texture filtering in lensed arcs, jagged photon ring, hard 1-px stars.** →
+   Exact per-pixel ray differentials: the Jacobi field j = ∂u/∂α (j'' = (6u − 1) j) is integrated with RK4
+   alongside every ray, giving smooth disk footprints for every image order and the exact sky Jacobian for
+   the stars (no 2×2-quad derivatives anywhere). Photon-ring supersampling raised to 8 extra rays. Star PSF
+   widened (σ 1.25 render px), star colours less desaturated with more blue-white stars, star brightness
+   normalised per 1080p pixel of the current lens (same look at any zoom), a fourth fine star layer for
+   narrow lenses. (The short "dashes" near the hook's Einstein ring are genuinely lensed star arcs; kept.)
+4. **Text legibility and colour system: text over bright disk, ice-blue readouts (a fifth colour), fallback
+   glyphs for ₛ/≈/√/arrows, old-style figures, debug-sounding "(numerical)".** → All text warm white, hierarchy
+   by face/size/opacity. None of the three typefaces carries ≈, √, →, ₛ or ⁴ (checked glyph by glyph in the
+   browser), so the overlay renders subscripts/superscripts itself and draws "≈" as a vector glyph; arrows,
+   √ and ∝ were rephrased out. Headlines avoid digits. Readouts reworded ("solved from the geodesic
+   equation"), one precision per value. Citation moved under the caption at 30 px, held 4.4 s. Stronger
+   scrims under readouts.
+5. **Payoff promised "the first real image" but never showed it; end card over a brown stain.** → The real EHT
+   image is not copied (brief: text only), so the beat is retitled "What a telescope would see": our hole
+   blurred to EHT resolution, then "M87*, 2019: also a lopsided ring." with the facts in two short mono lines.
+   Wipe labels clamped inside the frame; stars removed from the telescope view's bloom. The blur is undone
+   before the end card, so the title sits over a held, sharp, dimmed ring; title tracking tightened to 0.32 em.
+
+Also fixed from the round-1 list: Doppler beat restructured so the headline never contradicts the picture
+("One side is brighter" only while beaming is on; "How Interstellar showed it" over the no-shift frame); the
+close-orbit headline no longer claims 1.7 rₛ before the camera is there ("Just outside the photon sphere",
+from 81.4 s) and its text sits in the black of the shadow; title moved clear of the lower lensed arc; grain now
+reaches the blacks (black lifted 1.5/255, luminance-weighted grain floor); the pull-back after the silence
+gets two intermediate keys so the hole is never stranded in a corner; galaxy haze reduced, its stars denser.

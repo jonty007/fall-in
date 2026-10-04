@@ -10,7 +10,7 @@ import { DURATION, HITS, heartbeatTimes, smootherstep } from '../src/timeline.js
 import { geometry, RAY_DRAW, PHOTON_MAIN, PLUNGE } from '../src/overlay.js';
 
 const N = Math.round(DURATION * SR);
-const PANEL_T0 = { rays: 15.4, photon: 33.0, isco: 49.2 };
+const PANEL_T0 = { rays: 15.4, photon: 37.4, isco: 49.2 };
 
 // ---------------------------------------------------------------- instruments
 // Detuned saw ensemble note (pad / strings): returns stereo buffer of length n
@@ -38,6 +38,22 @@ function ensembleNote(midi, dur, { voices = 6, detune = 11, attack = 1.4, releas
   // per-note gentle low-pass so high notes don't get harsh
   const fc = Math.min(9000, f0 * 6 * bright + 400);
   out.L = filt(out.L, 'lp', fc, 0.5); out.R = filt(out.R, 'lp', fc, 0.5);
+  return out;
+}
+
+// Formant "choir": a soft saw ensemble through vowel formant band-passes (ah -> oo)
+const VOWELS = { ah: [[730, 1.0], [1090, 0.5], [2440, 0.18]], oo: [[300, 1.0], [870, 0.35], [2240, 0.08]] };
+function choirNote(midi, dur, { vowel = 'ah', attack = 1.6, release = 2.4, seed = 9 } = {}) {
+  const base = ensembleNote(midi, dur, { voices: 5, detune: 9, attack, release, vib: 6, vibRate: 4.6, seed, spread: 0.9, bright: 2 });
+  const out = new Stereo(base.n);
+  for (const ch of ['L', 'R']) {
+    const acc = new Float32Array(base.n);
+    for (const [f, g] of VOWELS[vowel]) {
+      const y = filt(filt(base[ch], 'bp', f, 5), 'bp', f, 5);
+      for (let i = 0; i < base.n; i++) acc[i] += y[i] * g * 3.2;
+    }
+    out[ch] = acc;
+  }
   return out;
 }
 
@@ -223,7 +239,9 @@ export function renderScore({ log = console.log, buses = false } = {}) {
   CHORDS.forEach((c, ci) => {
     const att = c.attack ?? 1.4, rel = c.release ?? 2.2;
     c.n.forEach((nm, k) => {
-      const midi = note(nm);
+      let midi = note(nm);
+      // keep the sub register clean under the D1 drone: pad bass notes below A1 move up an octave (except D)
+      if (midi < note('A1') && midi % 12 !== 2) midi += 12;
       const lowN = midi < 40;
       const st = ensembleNote(midi, c.d, { voices: lowN ? 4 : 6, detune: lowN ? 5 : 11, attack: att, release: rel, seed: ci * 13 + k, spread: lowN ? 0.2 : 0.85 });
       pads.addStereo(st, sec(c.t), (c.v ?? 1) * (lowN ? 0.42 : 0.42));
@@ -250,6 +268,25 @@ export function renderScore({ log = console.log, buses = false } = {}) {
     strings.L = filt(strings.L, 'lp', 3800, 0.6); strings.R = filt(strings.R, 'lp', 3800, 0.6);
     addSend(strings, 0, 0.45);
   }
+
+  // --- choir: under the title, and the wide swell after the silence
+  log('choir');
+  const choir = new Stereo(N);
+  const CHOIR = [
+    { t: 7.0, d: 5.6, n: ['A3', 'D4'], v: 'oo', g: 0.5 },
+    { t: 87.0, d: 3.4, n: ['F3', 'Bb3', 'D4', 'F4'], v: 'ah', g: 0.9 },
+    { t: 90.0, d: 3.4, n: ['D3', 'G3', 'Bb3', 'D4'], v: 'ah', g: 0.8 },
+    { t: 93.0, d: 2.4, n: ['C3', 'F3', 'A3', 'C4'], v: 'ah', g: 0.75 },
+    { t: 95.2, d: 2.9, n: ['D3', 'F3', 'A3', 'D4'], v: 'oo', g: 0.7 },
+    { t: 98.0, d: 2.2, n: ['D3', 'E3', 'A3'], v: 'oo', g: 0.6 },
+    { t: 100.0, d: 3.6, n: ['C#3', 'E3', 'A3'], v: 'oo', g: 0.6 },
+    { t: 105.0, d: 2.8, n: ['D3', 'F#3', 'A3', 'D4'], v: 'ah', g: 0.65 },
+  ];
+  CHOIR.forEach((c, ci) => c.n.forEach((nm, k) => {
+    const st = choirNote(note(nm), c.d, { vowel: c.v, attack: c.t === 87.0 ? 0.9 : 1.6, release: 2.2, seed: 500 + ci * 7 + k });
+    choir.addStereo(st, sec(c.t), c.g * 0.2);
+  }));
+  addSend(choir, 0, 0.55);
 
   // --- motif on glass: title, photon sphere (octave up, softer), payoff (octaves)
   log('motif');
@@ -406,14 +443,14 @@ export function renderScore({ log = console.log, buses = false } = {}) {
   const mix = new Stereo(N);
   const busGain = { drone: 1.0, pads: 1.0, strings: 0.9, glass: 1.0, pulse: 1.0, sfx: 1.0, wet: 0.55 };
   for (let i = 0; i < N; i++) {
-    mix.L[i] = drone.L[i] * busGain.drone + pads.L[i] * busGain.pads + strings.L[i] * busGain.strings + glassBus.L[i] + pulse.L[i] + sfx.L[i] + wl[i] * busGain.wet;
-    mix.R[i] = drone.R[i] * busGain.drone + pads.R[i] * busGain.pads + strings.R[i] * busGain.strings + glassBus.R[i] + pulse.R[i] + sfx.R[i] + wr[i] * busGain.wet;
+    mix.L[i] = drone.L[i] * busGain.drone + pads.L[i] * busGain.pads + strings.L[i] * busGain.strings + choir.L[i] + glassBus.L[i] + pulse.L[i] + sfx.L[i] + wl[i] * busGain.wet;
+    mix.R[i] = drone.R[i] * busGain.drone + pads.R[i] * busGain.pads + strings.R[i] * busGain.strings + choir.R[i] + glassBus.R[i] + pulse.R[i] + sfx.R[i] + wr[i] * busGain.wet;
   }
   // the film's dynamic arc: intro -> build -> peak -> resolve
   const arc = automation([[0, 0.6], [7, 0.85], [12, 0.75], [13, 0.62], [29.5, 0.7], [30, 0.7], [45.5, 0.78], [46, 0.6], [59.5, 0.68], [60, 0.78], [75.5, 0.84], [76, 0.72], [85.95, 1.18], [87, 1.25], [90, 1.2], [98, 1.05], [104.8, 0.9], [108, 0.85]], N);
   for (let i = 0; i < N; i++) { mix.L[i] *= arc[i]; mix.R[i] *= arc[i]; }
   const rms = (st, a = 0, b = DURATION) => { let s = 0; const s0 = sec(a), s1 = sec(b); for (let i = s0; i < s1; i++) s += st.L[i] ** 2 + st.R[i] ** 2; return 10 * Math.log10(s / (2 * (s1 - s0)) + 1e-20); };
-  log(`bus RMS dB  drone ${rms(drone).toFixed(1)}  pads ${rms(pads).toFixed(1)}  strings ${rms(strings).toFixed(1)}  glass ${rms(glassBus).toFixed(1)}  pulse ${rms(pulse).toFixed(1)}  sfx ${rms(sfx).toFixed(1)}`);
-  if (buses) return { mix, drone, pads, strings, glassBus, pulse, sfx, wet: { L: wl, R: wr } };
+  log(`bus RMS dB  choir ${rms(choir).toFixed(1)}  drone ${rms(drone).toFixed(1)}  pads ${rms(pads).toFixed(1)}  strings ${rms(strings).toFixed(1)}  glass ${rms(glassBus).toFixed(1)}  pulse ${rms(pulse).toFixed(1)}  sfx ${rms(sfx).toFixed(1)}`);
+  if (buses) return { mix, drone, pads, strings, choir, glassBus, pulse, sfx, wet: { L: wl, R: wr } };
   return mix;
 }

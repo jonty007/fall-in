@@ -134,11 +134,12 @@ float rnd(uvec3 p) { return float(pcg(p.x + pcg(p.y + pcg(p.z)))) * (1.0 / 42949
 
 void main() {
   vec3 col = texture(uScene, vUv).rgb * uExposure;
+  float tele = 0.0;
   if (uTeleSplit.z > 0.0) {
-    float m = smoothstep(uTeleSplit.x - uTeleSplit.y, uTeleSplit.x + uTeleSplit.y, vUv.x) * uTeleSplit.z;
-    col = mix(col, texture(uTele, vUv).rgb, m);
+    tele = smoothstep(uTeleSplit.x - uTeleSplit.y, uTeleSplit.x + uTeleSplit.y, vUv.x) * uTeleSplit.z;
+    col = mix(col, texture(uTele, vUv).rgb, tele);
   }
-  col += texture(uBloom, vUv).rgb * uBloomStrength;
+  col += texture(uBloom, vUv).rgb * uBloomStrength * (1.0 - tele);
 
   // soft scrims behind text blocks (a graded darkening, no edges, no blur of the image)
   for (int i = 0; i < 3; i++) {
@@ -156,7 +157,13 @@ void main() {
   float vig = 1.0 / pow(1.0 + dot(q, q) * uVignette, 2.0);
   col *= vig;
 
-  vec3 v = (uLook.z > 0.5 ? aces(col) : agx(col)) * uFade;
+  vec3 v = (uLook.z > 0.5 ? aces(col) : agx(col));
+  // grade: richer ember in the mid-tones, whites left white
+  float lumaG = dot(v, vec3(0.2126, 0.7152, 0.0722));
+  float satW = smoothstep(0.02, 0.25, lumaG) * (1.0 - smoothstep(0.6, 0.95, lumaG));
+  v = clamp(lumaG + (v - lumaG) * (1.0 + 0.28 * satW), 0.0, 1.0);
+  // a filmic black: lifted by ~1.5/255 so grain lives in the shadows too
+  v = (v * (1.0 - 0.006) + 0.006) * uFade;
 
   // grain: luminance-weighted, one value per output pixel so it survives the 2x downscale,
   // plus +-1 LSB triangular dither everywhere against banding
@@ -165,7 +172,7 @@ void main() {
   float n1 = rnd(uvec3(cell, fr * 3u + 1u)), n2 = rnd(uvec3(cell, fr * 3u + 2u));
   float n3 = rnd(uvec3(uvec2(gl_FragCoord.xy), fr * 3u + 7u)), n4 = rnd(uvec3(uvec2(gl_FragCoord.xy) + 911u, fr * 3u + 5u));
   float luma = dot(v, vec3(0.2126, 0.7152, 0.0722));
-  float amp = 0.016 * smoothstep(0.02, 0.3, luma) * (1.0 - 0.6 * smoothstep(0.55, 1.0, luma));
+  float amp = (0.005 + 0.013 * smoothstep(0.02, 0.3, luma) * (1.0 - 0.6 * smoothstep(0.55, 1.0, luma))) * uFade;
   float grain = (n1 + n2 - 1.0) * amp;
   float dither = (n3 + n4 - 1.0) / 255.0;
   v = v + grain * (0.6 + 0.4 * v) + dither;

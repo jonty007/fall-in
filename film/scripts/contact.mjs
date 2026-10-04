@@ -22,10 +22,19 @@ times.push(dur - 1 / 30);
 let i = 0;
 for (const t of times) {
   const f = path.join(work, `f_${String(i).padStart(3, '0')}.png`);
-  await film.frame(t, f);
-  // burn a small timestamp under the frame
+  await film.page.evaluate((tt) => window.seek(tt), t);
+  // timestamp label drawn by the page (portable: no ffmpeg drawtext needed), screenshot only
+  await film.page.evaluate((label) => {
+    const d = document.createElement('div');
+    d.id = 'stamp';
+    d.textContent = label;
+    d.style.cssText = 'position:absolute;left:0;bottom:0;padding:6px 14px;background:#000;color:#BFD4FF;font:500 72px "IBM Plex Mono",monospace;z-index:9';
+    document.body.appendChild(d);
+  }, fmtTime(t));
+  await film.page.screenshot({ path: f });
+  await film.page.evaluate(() => document.getElementById('stamp').remove());
   const lab = path.join(work, `l_${String(i).padStart(3, '0')}.png`);
-  ffmpeg(['-i', f, '-vf', `scale=480:270:flags=lanczos,pad=480:300:0:0:black,drawtext=text='${fmtTime(t).replace(':', '\\:')}':x=8:y=278:fontsize=18:fontcolor=0xBFD4FF`, lab]);
+  ffmpeg(['-i', f, '-vf', 'scale=480:270:flags=lanczos', lab]);
   i++;
   process.stdout.write(`\rframe ${i}/${times.length}`);
 }

@@ -98,7 +98,7 @@ float fbm(vec3 p, float lod) {
     s += a * fade * snoise(p);
     n += a;
     p = p * 2.03 + vec3(1.7, 9.2, 3.1);
-    a *= 0.52;
+    a *= 0.46;
   }
   return s / n;
 }
@@ -120,34 +120,37 @@ float diskLayer(float r, float ang, float lr, float age, float seed, float lod) 
   float a = ang - uSpin * Om * age;
   vec2 cs = vec2(cos(a), sin(a));
   // large clumps and arms (roughly isotropic; Keplerian shear turns them into spirals)
-  vec3 p1 = vec3(cs * 3.4, lr * 3.6 + seed * 7.31);
+  vec3 p1 = vec3(cs * 4.6, lr * 4.4 + seed * 7.31);
   float warp = snoise(p1 * 0.8 + vec3(seed));
   float big = fbm3(p1 + vec3(warp * 0.6, -warp * 0.4, warp * 0.3), lod * 0.35);
   // streaks: stretched along the orbit, displaced by the clumps
-  float sa = a + 1.2 * lr;   // gentle trailing spiral pitch for the fine structure
+  float sa = a + 0.55 * lr;  // gentle trailing spiral pitch for the fine structure
   vec2 cs2 = vec2(cos(sa), sin(sa));
   vec3 p2 = vec3(cs2 * 5.0, lr * 9.0 + seed * 3.17 + big * 1.1);
   float streak = fbm(p2, lod);
   // fine wisps: smooth (no ridges, whose cusps alias), faded by the pixel footprint
   vec3 q = vec3(cs2 * 9.0, lr * 22.0 + seed * 5.3 + big * 2.0);
   float wisp = snoise(q) * (1.0 - smoothstep(0.2, 0.9, lod * 2.4));
-  return big * 0.9 + streak * 0.45 + wisp * 0.18;
+  return big * 1.0 + streak * 0.34 + wisp * 0.12;
 }
 
 // returns rgb emission (already * alpha) and alpha
 vec4 diskSample(vec3 P, float r, float cosInc, float g, float lod) {
   float ang = atan(P.z, P.x);
   float lr = log(r);
-  const float PERIOD = 420.0;
+  const float PERIOD = 300.0;
   float ph = uTime / PERIOD;
-  float n = 0.0;
-  for (int k = 0; k < 2; k++) {
-    float pk = ph + float(k) * 0.5;
+  float n = 0.0, wsum2 = 0.0;
+  for (int k = 0; k < 3; k++) {
+    float pk = ph + float(k) / 3.0;
     float cyc = floor(pk);
     float fr = pk - cyc;
-    float w = 1.0 - abs(2.0 * fr - 1.0);
-    n += w * diskLayer(r, ang, lr, fr * PERIOD, cyc * 2.0 + float(k), lod);
+    float w = sin(3.14159265 * fr);           // smooth window; three layers overlap
+    w *= w;
+    n += w * diskLayer(r, ang, lr, fr * PERIOD, cyc * 3.0 + float(k), lod);
+    wsum2 += w * w;
   }
+  n *= inversesqrt(max(wsum2, 1e-4)) * 0.82; // keep the texture's contrast constant through the cross-fades
   // radial structure: soft outer fade, crisp ISCO edge
   // inner edge filtered with the pixel footprint (coverage), so thin lensed rings don't sparkle
   float edgeW = clamp(lod * r / 13.5, 0.03, 1.5);
@@ -186,7 +189,7 @@ float galaxyDensity(vec3 D, float lod) {
 // point source drawn with a pixel-space Gaussian through the local Jacobian of
 // the lens map (sky direction per screen pixel), so lensed stars stay
 // anti-aliased and conserve flux, and their arcs stretch correctly.
-struct Lens { vec3 dx; vec3 dy; float area; float ok; };
+struct Lens { vec3 dx; vec3 dy; float area; float ok; float scale; };   // scale: pixels per Jacobian step
 
 vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mMax, uint layer, float gal, float gsky, out float lodW) {
   vec3 d = R * D;
@@ -199,12 +202,11 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   vec2 gcell = (w * 0.5 + 0.5) * N;
   vec2 cell = floor(gcell);
   float cellAng = (PI * 0.5) / N;
-  float foot = sqrt(L.area);
+  float foot = sqrt(L.area) / L.scale;
   lodW = smoothstep(0.10, 0.32, foot / cellAng) ;
-  if (L.ok < 0.5) lodW = 1.0;
   vec3 rnd = rand3(uvec3(uvec2(cell), face * 16u + layer));
   vec3 rnd2 = rand3(uvec3(uvec2(cell) + 7919u, face * 16u + layer + 101u));
-  float p = min(prob * (1.0 + 2.2 * gal), 1.0);
+  float p = min(prob * (1.0 + 3.0 * gal), 1.0);
   if (rnd.x > p || lodW >= 1.0) return vec3(0.0);
   vec2 sw = (cell + 0.25 + 0.5 * rnd.yz) / N * 2.0 - 1.0;
   vec2 suv = tan(sw * (PI / 4.0));
@@ -220,38 +222,39 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   a11 += eps; a22 += eps;
   float det = a11 * a22 - a12 * a12;
   vec2 rhs = vec2(dot(L.dx, delta), dot(L.dy, delta));
-  vec2 pp = vec2(a22 * rhs.x - a12 * rhs.y, a11 * rhs.y - a12 * rhs.x) / det;
+  vec2 pp = vec2(a22 * rhs.x - a12 * rhs.y, a11 * rhs.y - a12 * rhs.x) / det * L.scale;   // offset in pixels
   // brightness: number counts N(<m) ~ 10^(0.6 m)
   m = clamp(mMax + log(max(rnd2.x, 1e-6)) / (0.6 * log(10.0)), mMin, mMax);
   float flux = pow(10.0, -0.4 * m);
   // colour temperature: mostly K/G/F, some A/B
   float t = rnd2.y;
-  float T = t < 0.55 ? mix(3600.0, 5600.0, t / 0.55) : (t < 0.88 ? mix(5600.0, 8000.0, (t - 0.55) / 0.33) : mix(8000.0, 22000.0, pow(max((t - 0.88) / 0.12, 0.0), 1.5)));
+  float T = t < 0.4 ? mix(3800.0, 5600.0, t / 0.4) : (t < 0.75 ? mix(5600.0, 9000.0, (t - 0.4) / 0.35) : mix(9000.0, 26000.0, pow(max((t - 0.75) / 0.25, 0.0), 1.4)));
   vec3 bbBase = blackbody(T);
   vec3 bb = blackbody(T * gsky);
   float lum = dot(bbBase, vec3(0.2126, 0.7152, 0.0722));
   vec3 col = bb / max(lum, 1e-6);           // flux scales with the blueshifted spectrum
-  col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, 0.62);
+  col = mix(vec3(dot(col, vec3(0.2126, 0.7152, 0.0722))), col, 0.85);
   float r2 = dot(pp, pp);
-  const float SIG = 0.85;
+  const float SIG = 1.25;                       // point-spread in render pixels (~0.6 px after the 2x downscale)
   float core = exp(-0.5 * r2 / (SIG * SIG)) / (2.0 * PI * SIG * SIG);
-  float halo = exp(-0.5 * r2 / 9.0) / (2.0 * PI * 9.0) * 0.06 * smoothstep(1.0, -1.0, m);
-  float area = max(L.area, 1e-14);
-  const float REF_AREA = 4.55e-7;   // solid angle of a 1080p pixel at a 40 degree field of view
-  return col * flux * (core + halo) * (REF_AREA / area) * (1.0 - lodW);
+  float halo = exp(-0.5 * r2 / 16.0) / (2.0 * PI * 16.0) * 0.08 * smoothstep(1.5, -1.0, m);
+  float area = max(L.area / (L.scale * L.scale), 1e-16);   // solid angle per render pixel after lensing
+  // brightness normalised to a 1080p pixel of the current lens, so stars look the same at any zoom
+  float ref = 2.0 * uTanHalfFov / 1080.0;
+  return col * flux * (core + halo) * (ref * ref / area) * (1.0 - lodW);
 }
 
 // mean radiance of a star layer (for cells smaller than the pixel footprint)
 float layerMean(float prob, float mMin, float mMax, float N) {
   float Ef = 3.0 * pow(10.0, -0.4 * mMax) - 2.0 * pow(10.0, 0.2 * mMin - 0.6 * mMax);
   float cellAng = (PI * 0.5) / N;
-  return prob * Ef * 4.55e-7 / (cellAng * cellAng);
+  float ref = 2.0 * uTanHalfFov / 1080.0;
+  return prob * Ef * ref * ref / (cellAng * cellAng);
 }
 
 vec3 sky(vec3 D, Lens L, float gsky) {
-  float foot = sqrt(L.area);
-  float lod = L.ok > 0.5 ? foot * 2.0 : 4.0;
-  float gal = galaxyDensity(D, lod);
+  float foot = sqrt(L.area) / L.scale;
+  float gal = galaxyDensity(D, foot * 2.0);
   float gboost = dot(blackbody(5200.0 * gsky), vec3(0.2126, 0.7152, 0.0722)) / dot(blackbody(5200.0), vec3(0.2126, 0.7152, 0.0722));
   vec3 avgCol = vec3(0.93, 0.95, 1.0) * gboost;
   vec3 col = vec3(0.0);
@@ -259,17 +262,23 @@ vec3 sky(vec3 D, Lens L, float gsky) {
   {
     mat3 R = rotX(0.31) * rotY(0.7);
     col += starLayer(D, L, R, 90.0, 0.55, -1.2, 5.5, 1u, gal * 0.4, gsky, lw);
-    col += avgCol * lw * layerMean(min(0.55 * (1.0 + 2.2 * gal * 0.4), 1.0), -1.2, 5.5, 90.0);
+    col += avgCol * lw * layerMean(min(0.55 * (1.0 + 3.0 * gal * 0.4), 1.0), -1.2, 5.5, 90.0);
   }
   {
     mat3 R = rotX(-0.83) * rotY(2.1);
     col += starLayer(D, L, R, 230.0, 0.75, 3.5, 8.0, 2u, gal, gsky, lw);
-    col += avgCol * lw * layerMean(min(0.75 * (1.0 + 2.2 * gal), 1.0), 3.5, 8.0, 230.0);
+    col += avgCol * lw * layerMean(min(0.75 * (1.0 + 3.0 * gal), 1.0), 3.5, 8.0, 230.0);
   }
   {
     mat3 R = rotX(1.37) * rotY(-0.4);
     col += starLayer(D, L, R, 520.0, 0.85, 6.5, 10.5, 3u, gal, gsky, lw);
-    col += avgCol * lw * layerMean(min(0.85 * (1.0 + 2.2 * gal), 1.0), 6.5, 10.5, 520.0);
+    col += avgCol * lw * layerMean(min(0.85 * (1.0 + 3.0 * gal), 1.0), 6.5, 10.5, 520.0);
+  }
+  {
+    // finest layer: keeps the field dense when the lens zooms in
+    mat3 R = rotX(-1.91) * rotY(1.13);
+    col += starLayer(D, L, R, 1300.0, 0.8, 8.5, 12.0, 4u, gal, gsky, lw);
+    col += avgCol * lw * layerMean(min(0.8 * (1.0 + 3.0 * gal), 1.0), 8.5, 12.0, 1300.0);
   }
   vec3 galCol = mix(vec3(1.0, 0.86, 0.70), vec3(0.85, 0.9, 1.0), 0.35);
   col *= uStarGain;
@@ -278,9 +287,25 @@ vec3 sky(vec3 D, Lens L, float gsky) {
 }
 
 // ---------------------------------------------------------------- one ray
-struct Hit { vec3 P; vec3 D; };   // D = (r, cos incidence, g)
+// Ray differentials are exact: alongside u(phi) we integrate the Jacobi field
+// j = du/dalpha (alpha = local angle of the ray from the radial direction), which obeys
+// the linearised orbit equation j'' = (6u - 1) j. A screen-pixel step changes alpha
+// (in-plane) and rotates the orbital plane about the camera axis (out-of-plane); from
+// j we get each disk hit's footprint and the sky Jacobian per pixel, smoothly, with no
+// 2x2-quad derivative steps.
+struct Hit { vec3 P; vec3 D; float fp; };   // D = (r, cos incidence, g); fp = footprint (M per pixel)
 
-void trace(vec3 d, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh, out bool escaped, out vec3 Dsky, out float bImpact) {
+float hermite(float s, float y0, float m0, float y1, float m1) {
+  float s2 = s * s, s3 = s2 * s;
+  return (2.0*s3 - 3.0*s2 + 1.0) * y0 + (s3 - 2.0*s2 + s) * m0 + (-2.0*s3 + 3.0*s2) * y1 + (s3 - s2) * m1;
+}
+float hermiteD(float s, float y0, float m0, float y1, float m1) {
+  float s2 = s * s;
+  return (6.0*s2 - 6.0*s) * y0 + (3.0*s2 - 4.0*s + 1.0) * m0 + (-6.0*s2 + 6.0*s) * y1 + (3.0*s2 - 2.0*s) * m1;
+}
+
+void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh,
+           out bool escaped, out vec3 Dsky, out vec3 Jx, out vec3 Jy, out float bImpact) {
   float r0 = length(uCamPos);
   vec3 e1 = uCamPos / r0;
   float cosA = dot(d, e1);
@@ -298,15 +323,23 @@ void trace(vec3 d, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh, o
   vec3  nrm = cross(e1, e2);                  // orbital plane normal (tracing direction)
   float bz = -b * nrm.y * uSpin;              // photon angular momentum along the gas motion
 
+  // pixel step -> (d alpha, d psi) for screen x and y
+  vec3 eA = -sinA * e1 + cosA * e2;
+  vec2 dAl = vec2(dot(ddx, eA), dot(ddy, eA));
+  vec2 dPs = vec2(dot(ddx, nrm), dot(ddy, nrm)) / sinA;
+  float j = 0.0, jw = u * sf0 / (sinA * sinA); // Jacobi field and its phi-derivative
+
   // phi of disk-plane crossings: cos(phi) e1.y + sin(phi) e2.y = 0
-  float phi0 = atan(e2.y, e1.y) + 0.5 * PI;
+  float A = e1.y, B = e2.y;
+  float phi0 = atan(B, A) + 0.5 * PI;
   float nextCross = mod(phi0, PI);
   if (nextCross < 1e-6) nextCross += PI;
+  float nodeRate = A * nrm.y / max(A * A + B * B, 1e-6);   // d(phi_cross)/d(psi)
 
   float phi = 0.0;
   escaped = false;
-  float phiEsc = 0.0;
-  h0 = Hit(vec3(0.0), vec3(1.0, 1.0, 1.0)); h1 = h0; h2 = h0;
+  float phiEsc = 0.0, jEsc = 0.0, wEsc = -1.0;
+  h0 = Hit(vec3(0.0), vec3(1.0), 0.0); h1 = h0; h2 = h0;
   nh = 0;
   float transEst = 1.0;
 
@@ -318,25 +351,30 @@ void trace(vec3 d, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh, o
     float hmin = mix(0.16, 0.0015, smoothstep(0.012, 0.05, u));
     float h = min(hb, max(hrel, hmin));
 
-    // RK4 on (u, w): u' = w, w' = 3u^2 - u
+    // RK4 on (u, w, j, jw): u' = w, w' = 3u^2 - u, j' = jw, jw' = (6u - 1) j
     float k1u = w,              k1w = 3.0 * u * u - u;
-    float u2 = u + 0.5 * h * k1u;
+    float k1j = jw,             k1jw = (6.0 * u - 1.0) * j;
+    float u2 = u + 0.5 * h * k1u, j2 = j + 0.5 * h * k1j;
     float k2u = w + 0.5 * h * k1w, k2w = 3.0 * u2 * u2 - u2;
-    float u3 = u + 0.5 * h * k2u;
+    float k2j = jw + 0.5 * h * k1jw, k2jw = (6.0 * u2 - 1.0) * j2;
+    float u3 = u + 0.5 * h * k2u, j3 = j + 0.5 * h * k2j;
     float k3u = w + 0.5 * h * k2w, k3w = 3.0 * u3 * u3 - u3;
-    float u4 = u + h * k3u;
+    float k3j = jw + 0.5 * h * k2jw, k3jw = (6.0 * u3 - 1.0) * j3;
+    float u4 = u + h * k3u, j4 = j + h * k3j;
     float k4u = w + h * k3w,    k4w = 3.0 * u4 * u4 - u4;
+    float k4j = jw + h * k3jw,  k4jw = (6.0 * u4 - 1.0) * j4;
     float un = u + h / 6.0 * (k1u + 2.0 * k2u + 2.0 * k3u + k4u);
     float wn = w + h / 6.0 * (k1w + 2.0 * k2w + 2.0 * k3w + k4w);
+    float jn = j + h / 6.0 * (k1j + 2.0 * k2j + 2.0 * k3j + k4j);
+    float jwn = jw + h / 6.0 * (k1jw + 2.0 * k2jw + 2.0 * k3jw + k4jw);
 
     // escape inside this step? find u = 0 on the Hermite cubic
     float sEsc = 2.0;
     if (un <= 0.0) {
       float s = u / (u - un);
       for (int it = 0; it < 4; it++) {
-        float s2 = s * s, s3 = s2 * s;
-        float H = (2.0*s3 - 3.0*s2 + 1.0) * u + (s3 - 2.0*s2 + s) * w * h + (-2.0*s3 + 3.0*s2) * un + (s3 - s2) * wn * h;
-        float dH = (6.0*s2 - 6.0*s) * u + (3.0*s2 - 4.0*s + 1.0) * w * h + (-6.0*s2 + 6.0*s) * un + (3.0*s2 - 2.0*s) * wn * h;
+        float H = hermite(s, u, w * h, un, wn * h);
+        float dH = hermiteD(s, u, w * h, un, wn * h);
         if (abs(dH) > 1e-12) s = clamp(s - H / dH, 0.0, 1.0);
       }
       sEsc = s;
@@ -346,9 +384,9 @@ void trace(vec3 d, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh, o
     if (nextCross <= phi + h) {
       float s = (nextCross - phi) / h;
       if (s < sEsc && nh < 3) {
-        float s2 = s * s, s3 = s2 * s;
-        float uc = (2.0*s3 - 3.0*s2 + 1.0) * u + (s3 - 2.0*s2 + s) * w * h + (-2.0*s3 + 3.0*s2) * un + (s3 - s2) * wn * h;
-        float wc = ((6.0*s2 - 6.0*s) * u + (3.0*s2 - 4.0*s + 1.0) * w * h + (-6.0*s2 + 6.0*s) * un + (3.0*s2 - 2.0*s) * wn * h) / h;
+        float uc = hermite(s, u, w * h, un, wn * h);
+        float wc = hermiteD(s, u, w * h, un, wn * h) / h;
+        float jc = hermite(s, j, jw * h, jn, jwn * h);
         float rc = 1.0 / max(uc, 1e-6);
         if (rc > max(uRin - 2.0, 3.05) && rc < uRout && uc > 0.0) {
           float cp = cos(nextCross), sp = sin(nextCross);
@@ -365,7 +403,13 @@ void trace(vec3 d, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh, o
           float Om = pow(rc, -1.5);
           float gD = 1.0 / (sf0 * ut * (1.0 - Om * bz));
           float gNo = 1.0;   // no frequency shifts at all, as rendered for Interstellar (James et al. 2015, fig. 15a)
-          Hit hh = Hit(P, vec3(rc, cosInc, mix(gNo, gD, wipe)));
+          // footprint of one pixel on the disk: in-plane (radial, from the Jacobi field) and
+          // out-of-plane (the orbital plane turns about the camera axis, moving the hit and its node)
+          vec2 inPl = abs(jc * dAl) * rc * rc;
+          float arc = sqrt(rc * rc + drdphi * drdphi);
+          vec2 outPl = abs(dPs) * sqrt(rc * rc * sp * sp + nodeRate * nodeRate * arc * arc);
+          vec2 fxy = sqrt(inPl * inPl + outPl * outPl);
+          Hit hh = Hit(P, vec3(rc, cosInc, mix(gNo, gD, wipe)), max(fxy.x, fxy.y));
           if (nh == 0) h0 = hh; else if (nh == 1) h1 = hh; else h2 = hh;
           nh++;
           // conservative opacity estimate from the radial envelope, for early exit only
@@ -376,23 +420,35 @@ void trace(vec3 d, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh, o
       nextCross += PI;
     }
 
-    if (sEsc <= 1.0) { escaped = true; phiEsc = phi + sEsc * h; break; }
+    if (sEsc <= 1.0) {
+      escaped = true;
+      phiEsc = phi + sEsc * h;
+      jEsc = hermite(sEsc, j, jw * h, jn, jwn * h);
+      wEsc = hermiteD(sEsc, u, w * h, un, wn * h) / h;
+      break;
+    }
     if (un > 0.338) break;          // inside the photon sphere moving in: falls in
     if (transEst < 0.01 || nh >= 3) break;
-    phi += h; u = un; w = wn;
+    phi += h; u = un; w = wn; j = jn; jw = jwn;
   }
   Dsky = escaped ? (cos(phiEsc) * e1 + sin(phiEsc) * e2) : d;
+  // sky Jacobian: in-plane the escape angle moves by -j/w per unit alpha; out-of-plane the
+  // asymptotic direction swings with the plane
+  vec3 tEsc = -sin(phiEsc) * e1 + cos(phiEsc) * e2;
+  float dPhi = -jEsc / (abs(wEsc) > 1e-6 ? wEsc : -1e-6);
+  Jx = escaped ? tEsc * dPhi * dAl.x + nrm * sin(phiEsc) * dPs.x : ddx;
+  Jy = escaped ? tEsc * dPhi * dAl.y + nrm * sin(phiEsc) * dPs.y : ddy;
 }
 
-vec3 shade(Hit h0, Hit h1, Hit h2, int nh, vec3 fp, bool escaped, vec3 Dsky, Lens L, float gsky, out vec3 diskOnly) {
+vec3 shade(Hit h0, Hit h1, Hit h2, int nh, bool escaped, vec3 Dsky, Lens L, float gsky, out vec3 diskOnly) {
   vec3 col = vec3(0.0);
   float trans = 1.0;
   for (int k = 0; k < 3; k++) {
     if (k >= nh || trans < 0.002) break;
     Hit h = h2;
     if (k == 0) h = h0; else if (k == 1) h = h1;
-    float f = k == 0 ? fp.x : (k == 1 ? fp.y : fp.z);
-    float lod = f / h.D.x * 9.0 * (k == 0 ? 2.0 : 4.0);   // lensed images get a more conservative filter
+    float fp = clamp(h.fp, 0.0, h.D.x * 0.5);
+    float lod = fp / h.D.x * 9.0 * 2.2;
     vec4 ds = diskSample(h.P, h.D.x, h.D.y, h.D.z, lod);
     col += trans * ds.rgb;
     trans *= 1.0 - ds.a;
@@ -402,55 +458,46 @@ vec3 shade(Hit h0, Hit h1, Hit h2, int nh, vec3 fp, bool escaped, vec3 Dsky, Len
   return col;
 }
 
+vec3 rayDir(vec2 p) { return normalize(uCamFwd + uTanHalfFov * (p.x * uCamRight + p.y * uCamUp)); }
+
+vec3 sample1(vec2 p, vec2 pixStep, float wipe, float gsky, float pixAng, out vec3 dcol, out float b) {
+  vec3 d = rayDir(p);
+  vec3 ddx = rayDir(p + vec2(pixStep.x, 0.0)) - d;
+  vec3 ddy = rayDir(p + vec2(0.0, pixStep.y)) - d;
+  Hit h0, h1, h2; int nh; bool escaped; vec3 Dsky, Jx, Jy;
+  trace(d, ddx, ddy, wipe, h0, h1, h2, nh, escaped, Dsky, Jx, Jy, b);
+  Lens L;
+  L.dx = Jx; L.dy = Jy;
+  L.area = max(length(cross(Jx, Jy)), pixAng * pixAng / 400.0);   // cap the magnification (finite stellar size); pixAng here is per Jacobian step
+  L.ok = 1.0;
+  L.scale = pixStep.y / (2.0 / uRes.y);
+  return shade(h0, h1, h2, nh, escaped, Dsky, L, gsky, dcol);
+}
+
 void main() {
   vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / (0.5 * uRes.y);
-  vec3 d = normalize(uCamFwd + uTanHalfFov * (p.x * uCamRight + p.y * uCamUp));
+  float px = 2.0 / uRes.y;
   float wipe = uWipe.z > 0.5 ? smoothstep(uWipe.x - uWipe.y, uWipe.x + uWipe.y, gl_FragCoord.x / uRes.x) : uWipe.w;
   float pixAng = 2.0 * uTanHalfFov / uRes.y;
   float gsky = inversesqrt(1.0 - 2.0 / length(uCamPos));   // starlight blueshift for the static camera
 
-  Hit h0, h1, h2; int nh; bool escaped; vec3 Dsky; float b;
-  trace(d, wipe, h0, h1, h2, nh, escaped, Dsky, b);
-
-  // texture footprints from screen-space derivatives (uniform control flow)
-  float v0 = nh > 0 ? 1.0 : 0.0, v1 = nh > 1 ? 1.0 : 0.0, v2 = nh > 2 ? 1.0 : 0.0;
-  vec3 fp = vec3(max(length(dFdx(h0.P)), length(dFdy(h0.P))),
-                 max(length(dFdx(h1.P)), length(dFdy(h1.P))),
-                 max(length(dFdx(h2.P)), length(dFdy(h2.P))));
-  vec3 okv = vec3(abs(dFdx(v0)) + abs(dFdy(v0)), abs(dFdx(v1)) + abs(dFdy(v1)), abs(dFdx(v2)) + abs(dFdy(v2)));
-  // where the quad straddles an image boundary, fall back to a generous footprint
-  vec3 fallback = vec3(h0.D.x * 0.004, h1.D.x * 0.05, h2.D.x * 0.05);
-  vec3 cap = vec3(h0.D.x, h1.D.x, h2.D.x) * 0.5;
-  fp = mix(clamp(fp, vec3(0.0), cap), fallback, step(vec3(0.5), okv));
-
-  float esc = escaped ? 1.0 : 0.0;
-  Lens L;
-  L.dx = dFdx(Dsky);
-  L.dy = dFdy(Dsky);
-  L.area = max(length(cross(L.dx, L.dy)), pixAng * pixAng / 400.0);   // cap the magnification (finite stellar size)
-  L.ok = (abs(dFdx(esc)) + abs(dFdy(esc)) < 0.5) ? 1.0 : 0.0;
-
-  vec3 dcol;
-  vec3 col = shade(h0, h1, h2, nh, fp, escaped, Dsky, L, gsky, dcol);
+  vec3 dcol; float b;
+  vec3 col = sample1(p, vec2(px), wipe, gsky, pixAng, dcol, b);
 
   // adaptive supersampling of the photon ring: rays whose impact parameter is within
   // 10 % of the critical value sqrt(27) M form the exponentially thin higher-order images
   float bc = 5.196152;
-  if (b > 0.99 * bc && b < 1.10 * bc) {
-    Lens Ls = L;
-    Ls.dx *= 0.5; Ls.dy *= 0.5; Ls.area *= 0.25;
-    vec2 offs[4] = vec2[4](vec2(0.125, 0.375), vec2(-0.375, 0.125), vec2(-0.125, -0.375), vec2(0.375, -0.125));
-    for (int j = 0; j < 4; j++) {
-      vec2 ps = p + offs[j] * (2.0 / uRes.y);
-      vec3 ds = normalize(uCamFwd + uTanHalfFov * (ps.x * uCamRight + ps.y * uCamUp));
-      Hit s0, s1, s2; int ns; bool es; vec3 Ds; float bs;
-      trace(ds, wipe, s0, s1, s2, ns, es, Ds, bs);
-      vec3 dsub;
-      col += shade(s0, s1, s2, ns, fp * 0.5, es, Ds, Ls, gsky, dsub);
+  if (b > 0.985 * bc && b < 1.10 * bc) {
+    const int NS = 8;
+    vec2 offs[NS] = vec2[NS](vec2(-0.4375, -0.0625), vec2(-0.3125, 0.3125), vec2(-0.1875, -0.3125), vec2(-0.0625, 0.1875),
+                             vec2(0.0625, -0.4375), vec2(0.1875, 0.4375), vec2(0.3125, -0.1875), vec2(0.4375, 0.0625));
+    for (int k = 0; k < NS; k++) {
+      vec3 dsub; float bs;
+      col += sample1(p + offs[k] * px, vec2(px) * 0.35, wipe, gsky, pixAng * 0.35, dsub, bs);
       dcol += dsub;
     }
-    col /= 5.0;
-    dcol /= 5.0;
+    col /= float(NS + 1);
+    dcol /= float(NS + 1);
   }
 
   if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
