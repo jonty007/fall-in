@@ -527,8 +527,8 @@ export class Overlay {
     const ctx = this.ctx;
     if (kind === 'split') {
       // the payoff ends side by side; each half is named just under the ring, either side of the seam
-      this.text('sharp', 'label', 936, 905, a, 'right');
-      this.text('EHT resolution', 'label', 984, 905, a, 'left');
+      this.text('sharp', 'label', 936, 880, a, 'right');
+      this.text('EHT resolution', 'label', 984, 880, a, 'left');
     }
   }
 }

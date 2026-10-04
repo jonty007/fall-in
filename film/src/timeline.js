@@ -82,8 +82,8 @@ const CAM = [
   [90.0, 40.0, 38.0, 218, 0, 4, 72, 30, 4.5],
   // payoff: pull far back, 17 degrees from the axis (the angle we see M87* at);
   // rolled so the Doppler-bright side is at the bottom, as in the 2017 EHT image
-  [91.6, 410, 17.0, 226, 0, 0, 90, 11, 13.0],
-  [104.6, 450, 17.0, 236, 0, 0, 90, 10.5, 13.0],
+  [91.6, 560, 17.0, 226, 0, 0, 90, 11, 13.0],
+  [104.6, 620, 17.0, 236, 0, 0, 90, 10.5, 13.0],
   // end card: the ring, smaller and whole, above the title
   [105.8, 470, 17.0, 237, 3.0, 0, 90, 15, 13.0],
   [108.0, 478, 17.0, 238, 3.1, 0, 90, 15, 13.0],
