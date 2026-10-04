@@ -161,6 +161,8 @@ export class Renderer {
     gl.uniform1f(u.uGalaxyGain, s.galaxyGain);
     gl.uniform1f(u.uSpin, s.spin);
     gl.uniform3fv(u.uOmega, s.omega || [0, 0, 0]);
+    gl.uniform3fv(u.uViewRot, s.viewRot || [0, 0, 0]);
+    gl.uniform1f(u.uDr, s.dr || 0);
     this.bindTex(0, this.lut, u.uLut);
     gl.bindVertexArray(this.vao);
     const rows = tileRows > 0 ? tileRows : this.h;

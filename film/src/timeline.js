@@ -9,7 +9,7 @@ export const BEATS = [
   { id: 'hook', name: 'Hook', t0: 0, t1: 7, still: 3.6 },
   { id: 'title', name: 'Title', t0: 7, t1: 13, still: 10.2 },
   { id: 'gravity', name: 'Gravity bends light', t0: 13, t1: 30, still: 24.5 },
-  { id: 'photon', name: 'Photon sphere', t0: 30, t1: 46, still: 43.9 },
+  { id: 'photon', name: 'Photon sphere', t0: 30, t1: 46, still: 45.0 },
   { id: 'isco', name: 'Innermost stable orbit', t0: 46, t1: 60, still: 55.5 },
   { id: 'doppler', name: 'Doppler beaming', t0: 60, t1: 76, still: 64.5 },
   { id: 'close', name: 'Close orbit', t0: 76, t1: 90, still: 84.8 },
@@ -118,7 +118,7 @@ const WIPE = [[60, 0], [67.2, 0], [69.2, 1], [73.6, 1], [75.6, 0], [76, 0]];
 // centre, so the frame ends as a side-by-side: sharp on the left, EHT resolution on the right.
 const TELE = [[90, 1.05], [95.2, 1.05], [98.6, 0.5], [104.4, 0.5], [105.6, 1.05], [108, 1.05]];
 // the photon-sphere diagram interlude: the shot fades out completely (no second hole behind the diagram)
-const DIM = [[0, 1], [37.2, 1], [38.4, 0.0], [44.2, 0.0], [45.4, 1], [108, 1]];
+const DIM = [[0, 1], [37.2, 1], [38.4, 0.0], [45.6, 0.0], [46.6, 1], [108, 1]];
 
 // Brighter background sky on the dive: the static observer deep in the potential sees
 // starlight blueshifted (already in the shader); this extra gain keeps the lensed
@@ -128,9 +128,8 @@ const STARS = [[0, 1], [76, 1], [82, 2.2], [86, 3], [88, 3], [91.6, 1], [108, 1]
 // Soft darkening behind text blocks (design px rects: x0, y0, x1, y1, strength)
 const SCRIMS = [
   { t0: 6.8, t1: 12.6, rect: [500, 840, 1420, 1010], k: 0.5 },
-  { t0: 15.4, t1: 29.2, rect: [1250, 60, 1900, 1040], k: 0.7 },
   { t0: 33.0, t1: 38.6, rect: [40, 70, 1000, 250], k: 0.62 },
-  { t0: 49.2, t1: 59.4, rect: [1180, 60, 1900, 1040], k: 0.8 },
+  { t0: 49.2, t1: 59.4, rect: [1300, 340, 1760, 860], k: 0.5 },   // a soft local scrim under the diagram only
   { t0: 62.2, t1: 75.4, rect: [380, 60, 1540, 290], k: 0.62 },
 ];
 
@@ -150,7 +149,7 @@ export function effectsAt(t) {
   const fadeOut = (1 - 0.25 * smootherstep(104.6, 105.8, t)) * (1 - smootherstep(107.25, 107.85, t));
   return {
     wipe: [0, 0, 0, 1 - Math.min(Math.max(wipeX, 0), 1)],   // x, softness, split on/off, beaming amount
-    teleSplit: [teleX, 0.004, t > 94 && t < 105.8 ? 1 : 0, 0],
+    teleSplit: [teleX, 0.0025, t > 94 && t < 105.8 ? 1 : 0, 0],
     // dimmed for the photon-sphere diagram; eased down while the no-Doppler disk (brighter, flatter) fills the frame
     dim: monotone(DIM, t) * (t > 60 && t < 76 ? 1 - 0.32 * Math.min(Math.max(wipeX, 0), 1) : 1),
     fade: fadeIn * fadeOut,
@@ -173,9 +172,9 @@ export const CUES = [
   { t0: 17.4, t1: 22.6, kind: 'caption', text: 'You’re seeing the disk’s far side.', x: 1200, y: 214 },
   { t0: 23.0, t1: 28.6, kind: 'caption', text: 'Bent over the top, and under.', x: 1200, y: 214 },
 
-  { t0: 33.2, t1: 44.8, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
-  { t0: 34.4, t1: 39.2, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
-  { t0: 39.8, t1: 44.8, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
+  { t0: 33.2, t1: 45.8, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
+  { t0: 34.4, t1: 42.4, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
+  { t0: 42.6, t1: 45.8, kind: 'caption', text: 'One nudge: it falls or escapes.', x: 120, y: 214 },
 
   { t0: 49.4, t1: 59.2, kind: 'headline', text: 'The last stable orbit', x: 1200, y: 150 },
   { t0: 50.6, t1: 58.8, kind: 'caption', text: 'Inside 3 rₛ, matter plunges in.', x: 1200, y: 214 },
@@ -184,10 +183,10 @@ export const CUES = [
   { t0: 63.0, t1: 67.0, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
   { t0: 69.0, t1: 73.6, kind: 'headline', text: 'How Interstellar showed it', x: 960, y: 150, align: 'center' },
   { t0: 69.4, t1: 73.6, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
-  { t0: 73.8, t1: 75.6, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
+  { t0: 73.6, t1: 76.4, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
 
-  { t0: 79.4, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
-  { t0: 79.8, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
+  { t0: 81.3, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
+  { t0: 81.5, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
 
   { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
   { t0: 95.2, t1: 99.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
@@ -206,7 +205,7 @@ export const READOUTS = [
   { t0: 63.2, t1: 67.0, x: 120, y: 420, kind: 'caption', leader: [250, 720], lines: () => ['approaching'] },
   { t0: 63.2, t1: 67.0, x: 1800, y: 420, kind: 'caption', align: 'right', leader: [1660, 720], lines: () => ['receding'] },
   // values at the closest point of the orbit (they do not tick while you read them)
-  { t0: 80.4, t1: 85.9, x: 120, y: 900, lines: (t, c, P) => [`time runs  ${((1 - P.clockRate(R_CLOSE)) * 100).toFixed(0)}% slower`, `starlight  ${(1 / P.clockRate(R_CLOSE)).toFixed(2)}× bluer`] },
+  { t0: 81.8, t1: 85.9, x: 120, y: 900, lines: (t, c, P) => [`time runs  ${((1 - P.clockRate(R_CLOSE)) * 100).toFixed(0)}% slower`, `starlight  ${(1 / P.clockRate(R_CLOSE)).toFixed(2)}× bluer`] },
 ];
 
 // Small labels pinned to screen positions
@@ -217,7 +216,7 @@ export const LABELS = [
 // Side panels
 export const PANELS = [
   { id: 'rays', t0: 15.4, t1: 29.2 },
-  { id: 'photon', t0: 38.2, t1: 45.0 },
+  { id: 'photon', t0: 38.2, t1: 46.0 },
   { id: 'isco', t0: 49.2, t1: 59.4 },
 ];
 

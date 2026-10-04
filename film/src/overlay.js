@@ -117,7 +117,6 @@ const RAYS_GEO = (() => {
 
 
 export const RAY_DRAW = 2.6;
-export const PHOTON_MAIN = { st: 0.6, dur: 5.2 };
 export const PLUNGE = { st: 1.6, dur: 6.4 };
 
 // Top view for the photon sphere: parallel rays from the left at impact parameters near sqrt(27) M
@@ -135,6 +134,26 @@ const PHOTON_GEO = (() => {
     return { ...s, pts: r.pts.slice(i0), end: r.end };
   });
 })();
+
+// The circling ray's timing (s after the panel appears): its approach, then the lap at an even pace
+// while it is alone on screen, then its exit; the two neighbours branch off after the lap.
+export const PHOTON_T = { approach: [0.8, 1.6], lap: [1.6, 4.6], exit: [4.6, 5.3], branch: 4.4 };
+const MAIN_IDX = (() => {
+  const pts = PHOTON_GEO.find((r) => r.main).pts;
+  const near = (p) => Math.hypot(p[0], p[1]) < 3.6;
+  const a = pts.findIndex(near);
+  let b = a;
+  for (let i = pts.length - 1; i >= 0; i--) if (near(pts[i])) { b = i; break; }
+  return { a, b, n: pts.length };
+})();
+export function mainProg(lt) {
+  const { a, b, n } = MAIN_IDX;
+  const T = PHOTON_T;
+  const seg = ([t0, t1], i0, i1) => i0 + (i1 - i0) * Math.min(1, Math.max(0, (lt - t0) / (t1 - t0)));
+  if (lt <= T.approach[0]) return 0;
+  const idx = lt < T.lap[0] ? seg(T.approach, 0, a) : lt < T.exit[0] ? seg(T.lap, a, b) : seg(T.exit, b, n - 1);
+  return idx / (n - 1);
+}
 
 // Top view for the ISCO: a stable circular orbit outside it, and matter released just inside
 // it (2.95 rs, 2 % below the ISCO's angular momentum) spiralling into the horizon (timelike geodesics)
@@ -211,10 +230,10 @@ export class Overlay {
         ctx.globalAlpha = a * 0.85;
         ctx.strokeStyle = COL.white; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ax, ay); ctx.stroke();
-        // the end dot carries a dark rim so it holds on the bright disk too
+        // the end marker: a dark dot in a cream ring, which reads the same on bright and dim disk
         ctx.globalAlpha = a;
-        ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.beginPath(); ctx.arc(ax, ay, 6.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = COL.white; ctx.beginPath(); ctx.arc(ax, ay, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.beginPath(); ctx.arc(ax, ay, 5.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = COL.white; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ax, ay, 5.5, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
         this.lines.push({ pts: [[sx, sy], [ax, ay]], kind: 'readout leader', own: lines[lines.length - 1], a });
       }
@@ -511,40 +530,64 @@ export class Overlay {
       const sc = 58, cx = 960, cy = 600;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
       const o = this.beginDiagram(cx, cy, 640, 330, a);
-      // no guide circle: the circling ray itself traces the photon sphere
+      // a thin dashed reference for the photon sphere; the circling ray laps it alone first
       o.save();
       o.strokeStyle = rgba(COL.white, 0.8); o.lineWidth = 1.8;
       this.circle(o, cx, cy, 2 * sc, 'horizon');
+      o.setLineDash([4, 10]); o.lineWidth = 1.2; o.strokeStyle = rgba(COL.white, 0.3);
+      this.circle(o, cx, cy, 3 * sc, 'photon sphere');
       o.restore();
+      const T = PHOTON_T;
       PHOTON_GEO.forEach((ray, i) => {
-        const st = ray.main ? PHOTON_MAIN.st : 0.4 + i * 0.35;
-        const prog = smootherstep(st, st + (ray.main ? PHOTON_MAIN.dur : 3.0), lt);
-        if (prog <= 0) return;
-        const style = ray.main ? { color: rgba(COL.white, 1), width: 3.2 }
-          : ray.kind === 'falls' ? { color: rgba(COL.ember, 0.95), width: 2.6 } : { color: rgba(COL.white, 0.85), width: 2.4, dash: [10, 8] };
-        if (style.dash) o.setLineDash(style.dash);
-        this.path(o, ray.pts, map, prog, style, true, ray.main ? 'main ray' : `${ray.kind} ray`);
-        o.setLineDash([]);
-        // the circling ray gets a comet head while it laps the hole
-        if (ray.main && prog > 0 && prog < 1) {
+        if (ray.main) {
+          const prog = mainProg(lt);
+          if (prog <= 0) return;
           const n = Math.max(2, Math.floor(ray.pts.length * prog));
-          const [hx, hy] = map(ray.pts[n - 1]);
-          const g = o.createRadialGradient(hx, hy, 0, hx, hy, 16);
-          g.addColorStop(0, rgba(COL.white, 0.9)); g.addColorStop(1, rgba(COL.white, 0));
-          o.fillStyle = g; o.beginPath(); o.arc(hx, hy, 16, 0, Math.PI * 2); o.fill();
+          // while it moves: a faint path with a bright fading trail and a glowing head, so the lap
+          // reads as motion; once it has left, the whole path comes up to full strength
+          const base = 0.3 + 0.7 * smoothstep(T.exit[1], T.exit[1] + 0.6, lt);
+          this.path(o, ray.pts, map, prog, { color: rgba(COL.white, base), width: 3.2 }, false, 'main ray');
+          if (lt < T.exit[1] + 0.6) {
+            const trail = 420, k0 = Math.max(0, n - trail);
+            for (let c = 0; c < 6; c++) {
+              const i0 = Math.floor(k0 + ((n - k0) * c) / 6), i1 = Math.floor(k0 + ((n - k0) * (c + 1)) / 6);
+              if (i1 - i0 < 2) continue;
+              o.save();
+              o.strokeStyle = rgba(COL.white, (1 - base) * ((c + 1) / 6));
+              o.lineWidth = 3.2; o.lineCap = 'round'; o.lineJoin = 'round';
+              o.beginPath();
+              for (let k = i0; k <= Math.min(i1, n - 1); k++) { const [X, Y] = map(ray.pts[k]); if (k === i0) o.moveTo(X, Y); else o.lineTo(X, Y); }
+              o.stroke(); o.restore();
+            }
+            if (prog < 1) {
+              const [hx, hy] = map(ray.pts[n - 1]);
+              const g = o.createRadialGradient(hx, hy, 0, hx, hy, 18);
+              g.addColorStop(0, rgba(COL.white, 0.95)); g.addColorStop(1, rgba(COL.white, 0));
+              o.fillStyle = g; o.beginPath(); o.arc(hx, hy, 18, 0, Math.PI * 2); o.fill();
+            }
+          }
+          return;
         }
+        const st = T.branch + (ray.kind === 'falls' ? 0.2 : 0);
+        const prog = smootherstep(st, st + 1.6, lt);
+        if (prog <= 0) return;
+        const style = ray.kind === 'falls' ? { color: rgba(COL.ember, 0.95), width: 2.6 } : { color: rgba(COL.white, 0.85), width: 2.4, dash: [10, 8] };
+        if (style.dash) o.setLineDash(style.dash);
+        this.path(o, ray.pts, map, prog, style, true, `${ray.kind} ray`);
+        o.setLineDash([]);
       });
       this.endDiagram();
-      const la = a * smoothstep(1.2, 2.2, lt);
-      // labels placed where no ray passes: the circling ray is named from its free left side
-      // (light arrives from the upper left and leaves downward), the falling ray inside the hole
-      this.dlabel(ctx, `photon sphere, ${(PHYS.ph.r / 2).toFixed(1)} rₛ`, cx - 3.03 * sc, cy, cx - 3 * sc - 76, cy + 12, a * smoothstep(PHOTON_MAIN.st + 2.6, PHOTON_MAIN.st + 3.4, lt), 'right');
-      this.text('falls in', 'label', cx, cy + 12, a * smoothstep(3.4, 4.2, lt), 'center', COL.ember);
-      const R = (k) => PHOTON_GEO.find((r) => r.kind === k);
-      const esc = R('escapes');
-      const ea = a * smoothstep(3.6, 4.4, lt);
-      const pt = esc && esc.pts.find(([x, y]) => y < -5.0 && Math.abs(x) < 9);
-      if (pt && ea > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, 'escapes', ex, ey, ex + 40, ey + 70, ea, 'left'); }
+      // labels at the end of each ray (the photon sphere from its free left side, during the lap)
+      this.dlabel(ctx, `photon sphere, ${(PHYS.ph.r / 2).toFixed(1)} rₛ`, cx - 3 * sc, cy, cx - 3 * sc - 76, cy + 12, a * smoothstep(2.4, 3.2, lt), 'right');
+      this.text('falls in', 'label', cx + 78, cy + 48, a * smoothstep(T.branch + 1.4, T.branch + 2.2, lt), 'right', COL.ember);
+      const R = (k) => PHOTON_GEO.find((r) => (k === 'main' ? r.main : r.kind === k));
+      const tag = (ray, txt, dx, align, t0) => {
+        const ta = a * smoothstep(t0, t0 + 0.8, lt);
+        const pt = ray && ray.pts.find(([x, y]) => y < -5.0 && Math.abs(x) < 9);
+        if (pt && ta > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, txt, ex, ey, ex + dx, ey + 70, ta, align); }
+      };
+      tag(R('main'), 'orbits, then leaves', -40, 'right', T.exit[1]);
+      tag(R('escapes'), 'escapes', 40, 'left', T.branch + 1.6);
     } else if (p.id === 'isco') {
       // right-hand column, over the dimmer receding side of the disk
       const sc = 26, cx = 1530, cy = 600;
@@ -565,7 +608,7 @@ export class Overlay {
     const ctx = this.ctx;
     if (kind === 'split') {
       // the payoff ends side by side: a soft cream hairline on the seam, running a little past the
-      // disk at both ends, and each half named under its own centre
+      // disk at both ends, and each half named under it, hung off the seam at equal gaps
       ctx.save();
       const g = ctx.createLinearGradient(0, 280, 0, 820);
       g.addColorStop(0, rgba(COL.white, 0)); g.addColorStop(0.08, rgba(COL.white, 0.7)); g.addColorStop(0.92, rgba(COL.white, 0.7)); g.addColorStop(1, rgba(COL.white, 0));
@@ -573,8 +616,8 @@ export class Overlay {
       for (const [w, al] of [[3.0, 0.25], [1.6, 0.6], [0.8, 1.0]]) { ctx.globalAlpha = a * al; ctx.fillStyle = g; ctx.fillRect(960 - w / 2, 280, w, 540); }
       ctx.restore();
       this.lines.push({ pts: [[960, 300], [960, 800]], kind: 'split line', a });
-      this.text('sharp', 'label', 830, 880, a, 'center');
-      this.text('EHT resolution', 'label', 1090, 880, a, 'center');
+      this.text('sharp', 'label', 924, 880, a, 'right');
+      this.text('EHT resolution', 'label', 996, 880, a, 'left');
     }
   }
 }

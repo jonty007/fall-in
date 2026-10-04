@@ -28,6 +28,8 @@ uniform float uStarGain;
 uniform float uGalaxyGain;
 uniform float uSpin;        // +1 / -1 direction of disk rotation about +y
 uniform vec3  uOmega;       // the camera's rotation about the hole while the shutter is open (axis * angle, rad)
+uniform vec3  uViewRot;     // the camera's turn relative to that, over the same interval (axis * angle, rad)
+uniform float uDr;          // the camera's change of distance from the hole over the same interval (M)
 uniform sampler2D uLut;     // row 0: blackbody, row 1: disk temperature profile
 
 layout(location = 0) out vec4 fragColor;
@@ -214,7 +216,7 @@ float galaxyDensity(vec3 D, float lod) {
 // point source drawn with a pixel-space Gaussian through the local Jacobian of
 // the lens map (sky direction per screen pixel), so lensed stars stay
 // anti-aliased and conserve flux, and their arcs stretch correctly.
-struct Lens { vec3 dx; vec3 dy; float area; float ok; float scale; };   // scale: pixels per Jacobian step
+struct Lens { vec3 dx; vec3 dy; float area; float ok; float scale; vec3 dD; };   // scale: pixels per Jacobian step; dD: sky motion over the shutter
 
 vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mMax, uint layer, float gal, float gsky, out float lodW) {
   vec3 d = R * D;
@@ -248,11 +250,11 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   float det = a11 * a22 - a12 * a12;
   vec2 rhs = vec2(dot(L.dx, delta), dot(L.dy, delta));
   vec2 pp = vec2(a22 * rhs.x - a12 * rhs.y, a11 * rhs.y - a12 * rhs.x) / det * L.scale;   // offset in pixels
-  // motion blur (180-degree shutter): as the camera circles the hole the lens map turns with it,
-  // so the sky seen through this pixel turns by uOmega; through the local Jacobian that moves the
-  // star's image by mv pixels. Near the Einstein ring the magnification makes this a streak; the
-  // star is drawn as a Gaussian swept along it (flux conserved), so it streaks instead of strobing.
-  vec3 dD = cross(uOmega, D);
+  // motion blur (180-degree shutter): L.dD is how the sky seen through this pixel moves while the
+  // shutter is open; through the local Jacobian that moves the star's image by mv pixels. Near the
+  // Einstein ring the magnification makes this a streak; the star is drawn as a Gaussian swept
+  // along it (flux conserved), so it streaks along its real path instead of strobing.
+  vec3 dD = L.dD;
   vec2 rv = vec2(dot(L.dx, dD), dot(L.dy, dD));
   vec2 mv = vec2(a22 * rv.x - a12 * rv.y, a11 * rv.y - a12 * rv.x) / det * L.scale;
   float ml = length(mv);
@@ -265,7 +267,7 @@ vec3 starLayer(vec3 D, Lens L, mat3 R, float N, float prob, float mMin, float mM
   float flux = pow(10.0, -0.4 * m);
   // colour temperature: mostly K/G/F, some A/B
   float t = rnd2.y;
-  float T = t < 0.15 ? mix(4400.0, 5800.0, t / 0.15) : (t < 0.65 ? mix(5800.0, 9500.0, (t - 0.15) / 0.5) : mix(9500.0, 26000.0, pow(max((t - 0.65) / 0.35, 0.0), 1.4)));
+  float T = t < 0.15 ? mix(5200.0, 5900.0, t / 0.15) : (t < 0.65 ? mix(5800.0, 9500.0, (t - 0.15) / 0.5) : mix(9500.0, 26000.0, pow(max((t - 0.65) / 0.35, 0.0), 1.4)));
   vec3 bbBase = blackbody(T);
   vec3 bb = blackbody(T * gsky);
   float lum = dot(bbBase, vec3(0.2126, 0.7152, 0.0722));
@@ -332,7 +334,7 @@ vec3 sky(vec3 D, Lens L, float gsky) {
 // (in-plane) and rotates the orbital plane about the camera axis (out-of-plane); from
 // j we get each disk hit's footprint and the sky Jacobian per pixel, smoothly, with no
 // 2x2-quad derivative steps.
-struct Hit { vec3 P; vec3 D; float fp; };   // D = (r, cos incidence, g); fp = footprint (M per pixel)
+struct Hit { vec3 P; vec3 D; float fp; float fl; };   // D = (r, cos incidence, g); fp = footprint (M per pixel, longest axis); fl = for texture filtering
 
 float hermite(float s, float y0, float m0, float y1, float m1) {
   float s2 = s * s, s3 = s2 * s;
@@ -344,7 +346,7 @@ float hermiteD(float s, float y0, float m0, float y1, float m1) {
 }
 
 void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out Hit h2, out int nh,
-           out bool escaped, out vec3 Dsky, out vec3 Jx, out vec3 Jy, out float bImpact) {
+           out bool escaped, out vec3 Dsky, out vec3 Jx, out vec3 Jy, out vec3 Jr, out float bImpact) {
   float r0 = length(uCamPos);
   vec3 e1 = uCamPos / r0;
   float cosA = dot(d, e1);
@@ -367,6 +369,9 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
   vec2 dAl = vec2(dot(ddx, eA), dot(ddy, eA));
   vec2 dPs = vec2(dot(ddx, nrm), dot(ddy, nrm)) / sinA;
   float j = 0.0, jw = u * sf0 / (sinA * sinA); // Jacobi field and its phi-derivative
+  // a second solution of the same linearised equation: the orbit's change with the camera's
+  // distance r0 at a fixed local angle (u0 = 1/r0, w0 = -u0 sqrt(1-2/r0) cot A, differentiated)
+  float kk = -u * u, kw = (cosA / sinA) * (sf0 * u * u - u * u * u / sf0);
 
   // phi of disk-plane crossings: cos(phi) e1.y + sin(phi) e2.y = 0
   float A = e1.y, B = e2.y;
@@ -377,8 +382,8 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
 
   float phi = 0.0;
   escaped = false;
-  float phiEsc = 0.0, jEsc = 0.0, wEsc = -1.0;
-  h0 = Hit(vec3(0.0), vec3(1.0), 0.0); h1 = h0; h2 = h0;
+  float phiEsc = 0.0, jEsc = 0.0, wEsc = -1.0, kEsc = 0.0;
+  h0 = Hit(vec3(0.0), vec3(1.0), 0.0, 0.0); h1 = h0; h2 = h0;
   nh = 0;
   float transEst = 1.0;
 
@@ -393,19 +398,25 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
     // RK4 on (u, w, j, jw): u' = w, w' = 3u^2 - u, j' = jw, jw' = (6u - 1) j
     float k1u = w,              k1w = 3.0 * u * u - u;
     float k1j = jw,             k1jw = (6.0 * u - 1.0) * j;
-    float u2 = u + 0.5 * h * k1u, j2 = j + 0.5 * h * k1j;
+    float k1k = kw,             k1kw = (6.0 * u - 1.0) * kk;
+    float u2 = u + 0.5 * h * k1u, j2 = j + 0.5 * h * k1j, kk2 = kk + 0.5 * h * k1k;
     float k2u = w + 0.5 * h * k1w, k2w = 3.0 * u2 * u2 - u2;
     float k2j = jw + 0.5 * h * k1jw, k2jw = (6.0 * u2 - 1.0) * j2;
-    float u3 = u + 0.5 * h * k2u, j3 = j + 0.5 * h * k2j;
+    float k2k = kw + 0.5 * h * k1kw, k2kw = (6.0 * u2 - 1.0) * kk2;
+    float u3 = u + 0.5 * h * k2u, j3 = j + 0.5 * h * k2j, kk3 = kk + 0.5 * h * k2k;
     float k3u = w + 0.5 * h * k2w, k3w = 3.0 * u3 * u3 - u3;
     float k3j = jw + 0.5 * h * k2jw, k3jw = (6.0 * u3 - 1.0) * j3;
-    float u4 = u + h * k3u, j4 = j + h * k3j;
+    float k3k = kw + 0.5 * h * k2kw, k3kw = (6.0 * u3 - 1.0) * kk3;
+    float u4 = u + h * k3u, j4 = j + h * k3j, kk4 = kk + h * k3k;
     float k4u = w + h * k3w,    k4w = 3.0 * u4 * u4 - u4;
     float k4j = jw + h * k3jw,  k4jw = (6.0 * u4 - 1.0) * j4;
+    float k4k = kw + h * k3kw,  k4kw = (6.0 * u4 - 1.0) * kk4;
     float un = u + h / 6.0 * (k1u + 2.0 * k2u + 2.0 * k3u + k4u);
     float wn = w + h / 6.0 * (k1w + 2.0 * k2w + 2.0 * k3w + k4w);
     float jn = j + h / 6.0 * (k1j + 2.0 * k2j + 2.0 * k3j + k4j);
     float jwn = jw + h / 6.0 * (k1jw + 2.0 * k2jw + 2.0 * k3jw + k4jw);
+    float kn = kk + h / 6.0 * (k1k + 2.0 * k2k + 2.0 * k3k + k4k);
+    float kwn = kw + h / 6.0 * (k1kw + 2.0 * k2kw + 2.0 * k3kw + k4kw);
 
     // escape inside this step? find u = 0 on the Hermite cubic
     float sEsc = 2.0;
@@ -448,7 +459,9 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
           float arc = sqrt(rc * rc + drdphi * drdphi);
           vec2 outPl = abs(dPs) * sqrt(rc * rc * sp * sp + nodeRate * nodeRate * arc * arc);
           vec2 fxy = sqrt(inPl * inPl + outPl * outPl);
-          Hit hh = Hit(P, vec3(rc, cosInc, mix(gNo, gD, wipe)), max(fxy.x, fxy.y));
+          // texture filtering uses a footprint between the area-equivalent and the longest axis: the
+          // longest axis alone over-blurs the near disk, which is seen at a grazing angle
+          Hit hh = Hit(P, vec3(rc, cosInc, mix(gNo, gD, wipe)), max(fxy.x, fxy.y), mix(sqrt(fxy.x * fxy.y), max(fxy.x, fxy.y), 0.35));
           if (nh == 0) h0 = hh; else if (nh == 1) h1 = hh; else h2 = hh;
           nh++;
           // conservative opacity estimate from the radial envelope, for early exit only
@@ -464,12 +477,13 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
       escaped = true;
       phiEsc = phi + sEsc * h;
       jEsc = hermite(sEsc, j, jw * h, jn, jwn * h);
+      kEsc = hermite(sEsc, kk, kw * h, kn, kwn * h);
       wEsc = hermiteD(sEsc, u, w * h, un, wn * h) / h;
       break;
     }
     if (un > 0.338) break;          // inside the photon sphere moving in: falls in
     if (transEst < 0.01 || nh >= 3) break;
-    phi += h; u = un; w = wn; j = jn; jw = jwn;
+    phi += h; u = un; w = wn; j = jn; jw = jwn; kk = kn; kw = kwn;
   }
   Dsky = escaped ? (cos(phiEsc) * e1 + sin(phiEsc) * e2) : d;
   // sky Jacobian: in-plane the escape angle moves by -j/w per unit alpha; out-of-plane the
@@ -478,6 +492,8 @@ void trace(vec3 d, vec3 ddx, vec3 ddy, float wipe, out Hit h0, out Hit h1, out H
   float dPhi = -jEsc / (abs(wEsc) > 1e-6 ? wEsc : -1e-6);
   Jx = escaped ? tEsc * dPhi * dAl.x + nrm * sin(phiEsc) * dPs.x : ddx;
   Jy = escaped ? tEsc * dPhi * dAl.y + nrm * sin(phiEsc) * dPs.y : ddy;
+  // escape direction per unit change of the camera's distance
+  Jr = escaped ? tEsc * (-kEsc / (abs(wEsc) > 1e-6 ? wEsc : -1e-6)) : vec3(0.0);
 }
 
 vec3 shade(Hit h0, Hit h1, Hit h2, int nh, bool escaped, vec3 Dsky, Lens L, float gsky, out vec3 diskOnly, out vec3 thin) {
@@ -488,8 +504,8 @@ vec3 shade(Hit h0, Hit h1, Hit h2, int nh, bool escaped, vec3 Dsky, Lens L, floa
     if (k >= nh || trans < 0.002) break;
     Hit h = h2;
     if (k == 0) h = h0; else if (k == 1) h = h1;
-    float fp = clamp(h.fp, 0.0, h.D.x * 0.5);
-    float lod = fp / h.D.x * 9.0 * 3.0;
+    float fp = clamp(h.fl, 0.0, h.D.x * 0.5);
+    float lod = fp / h.D.x * 9.0 * 2.6;
     vec4 ds = diskSample(h.P, h.D.x, h.D.y, h.D.z, lod);
     // an image of the disk thinner than ~3 px (the higher-order rings) goes to the soft buffer
     float bandPx = (uRout - uRin) / max(h.fp, 1e-6);
@@ -509,10 +525,17 @@ vec3 sample1(vec2 p, vec2 pixStep, float wipe, float gsky, float pixAng, out vec
   vec3 d = rayDir(p);
   vec3 ddx = rayDir(p + vec2(pixStep.x, 0.0)) - d;
   vec3 ddy = rayDir(p + vec2(0.0, pixStep.y)) - d;
-  Hit h0, h1, h2; int nh; bool escaped; vec3 Dsky, Jx, Jy;
-  trace(d, ddx, ddy, wipe, h0, h1, h2, nh, escaped, Dsky, Jx, Jy, b);
+  Hit h0, h1, h2; int nh; bool escaped; vec3 Dsky, Jx, Jy, Jr;
+  trace(d, ddx, ddy, wipe, h0, h1, h2, nh, escaped, Dsky, Jx, Jy, Jr, b);
   Lens L;
   L.dx = Jx; L.dy = Jy;
+  // how the sky seen through this pixel moves while the shutter is open: the camera circling the
+  // hole (the lens map turns with it), the camera turning relative to that (a rigid shift of the
+  // image, carried by the pixel Jacobian), and its change of distance (the r0-derivative)
+  vec3 dv = cross(uViewRot, d);
+  float b11 = dot(ddx, ddx), b12 = dot(ddx, ddy), b22 = dot(ddy, ddy);
+  vec2 ab = vec2(b22 * dot(ddx, dv) - b12 * dot(ddy, dv), b11 * dot(ddy, dv) - b12 * dot(ddx, dv)) / max(b11 * b22 - b12 * b12, 1e-24);
+  L.dD = cross(uOmega, Dsky) + Jx * ab.x + Jy * ab.y + Jr * uDr;
   L.area = max(length(cross(Jx, Jy)), pixAng * pixAng / 24.0);    // cap the magnification (finite stellar size, and no popping near caustics)
   L.ok = 1.0;
   L.scale = pixStep.y / (2.0 / uRes.y);

@@ -7,7 +7,7 @@ import {
   filt, svf, softClip, convolveStereo, makeIR,
 } from './dsp.mjs';
 import { DURATION, HITS, heartbeatTimes, smootherstep } from '../src/timeline.js';
-import { geometry, RAY_DRAW, PHOTON_MAIN, PLUNGE } from '../src/overlay.js';
+import { geometry, RAY_DRAW, PHOTON_T, mainProg, PLUNGE } from '../src/overlay.js';
 
 const N = Math.round(DURATION * SR);
 const PANEL_T0 = { rays: 15.4, photon: 38.2, isco: 49.2 };
@@ -342,7 +342,7 @@ export function renderScore({ log = console.log, buses = false } = {}) {
   // photon panel: a glassy tone that follows the circling ray around the stereo field
   {
     const main = G.PHOTON_GEO.find((r) => r.main);
-    const t0 = PANEL_T0.photon + PHOTON_MAIN.st, t1 = t0 + PHOTON_MAIN.dur;
+    const t0 = PANEL_T0.photon + PHOTON_T.approach[0], t1 = PANEL_T0.photon + PHOTON_T.exit[1];
     const s0 = sec(t0 - 0.5), s1 = sec(t1 + 1.5);
     const n = s1 - s0;
     const L = new Float32Array(n), R = new Float32Array(n);
@@ -350,7 +350,7 @@ export function renderScore({ log = console.log, buses = false } = {}) {
     let lastPan = 0;
     for (let i = 0; i < n; i++) {
       const t = (s0 + i) / SR;
-      const prog = smootherstep(t0, t1, t);
+      const prog = mainProg(t - PANEL_T0.photon);   // the same timing as the picture
       const idx = Math.min(main.pts.length - 1, Math.floor(prog * (main.pts.length - 1)));
       const [x, y] = main.pts[idx];
       const r = Math.hypot(x, y);

@@ -15,7 +15,7 @@ const jobs = args.times
 
 // --view=960x540 renders a smaller viewport (look-dev); the delivery stills use the default 1920x1080
 const [vw, vh] = String(args.view || '1920x1080').split('x').map(Number);
-const film = await openFilm({ cpu: !!args.cpu, scale: Number(args.scale || 2), width: vw, height: vh, query: '?' + [args.noui ? 'noui' : '', args.ev ? `ev=${args.ev}` : '', args.sat ? `sat=${args.sat}` : ''].filter(Boolean).join('&') });
+const film = await openFilm({ cpu: !!args.cpu, scale: Number(args.scale || 2), width: vw, height: vh, query: '?' + [args.noui ? 'noui' : '', args.ev ? `ev=${args.ev}` : '', args.sat ? `sat=${args.sat}` : '', args.shutter ? `shutter=${args.shutter}` : ''].filter(Boolean).join('&') });
 console.log('renderer:', film.info.renderer);
 const tmp = path.join(outDir, '_raw.png');
 for (const j of jobs) {

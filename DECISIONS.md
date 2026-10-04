@@ -367,3 +367,31 @@ for two @fontsource typefaces plus a monospace, and the mono is kept only for th
 
 Also from round 6: the return morph gets its own headline ("And back to the real view"); the gravity diagram is
 lifted 70 px, away from the rendered disk's wing; the title kerns I–N a little tighter.
+
+### Round 7 — five worst findings and what was done
+
+1. **The photon beat never showed light orbiting** (the lap was drawn in about a second, alongside the other
+   rays, and merged into a static circle). → The circling ray now has its own timing, shared with the score:
+   approach 0.8 s, then 1.8 laps at an even pace over 3 s while it is alone on screen, drawn as a faint path with a
+   bright fading trail and a glowing head, over a thin dashed photon-sphere reference; only then do the
+   neighbours branch off ("falls in", "escapes"), and the circling ray is named at its end ("orbits, then
+   leaves"). "Here, light itself can orbit." runs through the lap, "One nudge: it falls or escapes." over the
+   branches; the interlude is 1 s longer.
+2. **The close-orbit headline was cut by the photon ring at 80 s.** → The text now arrives at 81.3 s, after the
+   camera's swing, when the lower-left is inside the shadow.
+3. **Mushy foreground disk.** The texture filter used the longest axis of each pixel's footprint, which on the
+   grazing near disk is many times the short axis. → It now uses a footprint between the area-equivalent and the
+   longest axis, with a smaller safety factor, so the near disk keeps its finer octaves.
+4. **Stars strobing or drawn as dashes in the wrong direction.** The blur used only the camera's rotation about
+   the hole. → The sky motion behind each pixel now has three exact parts: the rotation about the hole (the lens
+   map turns with it), the camera's own turn relative to that (a rigid image shift carried by the pixel
+   Jacobian), and its change of distance, from a second Jacobi field integrated with the ray (the orbit's
+   derivative with respect to the camera radius at a fixed local angle). Verified with an exaggerated shutter:
+   each streak runs from the star's position one frame earlier to its position one frame later. 180° shutter.
+5. **Text scrims erased the rendered disk.** → The full-height column scrims are gone; only the per-text plates
+   (soft, −28 %) and a soft local scrim under the ISCO diagram remain, so the disk no longer shrinks when text
+   arrives.
+
+Also from round 7: payoff labels hung off the seam at equal gaps and a tighter split; "And back to the real view"
+held for 2 s at full strength; leader end markers drawn the same on bright and dim disk; the warmest stars now
+start at 5200 K (no orange stars).
