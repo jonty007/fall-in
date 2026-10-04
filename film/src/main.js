@@ -60,7 +60,7 @@ export function frameState(t) {
       tPeak: 4500, rIn: 6, rOut: 30,
       wipe: fx.wipe,
       diskGain: 1, starGain: 1.3 * fx.starBoost, galaxyGain: 0.00035 * Math.pow(fx.starBoost, 0.7), spin: 1, omega, viewRot, dr,
-      exposure: cam.exposure * fx.dim * EV,
+      exposure: cam.exposure * fx.dim * EV * Math.pow(0.02, fx.crush),
       bloomThreshold: 2.4, bloomStrength: 0.12,
       teleSplit: fx.teleSplit, teleSigmaPx,
       fade: fx.fade, crush: fx.crush,

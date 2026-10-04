@@ -70,8 +70,8 @@ const CAM = [
   [49.2, 34.0, 38.0, 74, -13.0, 1.5, 0, 40, 5.2],
   [59.2, 31.0, 34.0, 88, -12.5, 1.5, 0, 40, 5.2],
   // doppler: almost edge-on, centred
-  [62.6, 24.0, 86.0, 92, 0, 9.9, 0, 40, 5.3],
-  [75.2, 22.0, 85.5, 102, 0, 9.4, 0, 40, 5.3],
+  [62.6, 24.0, 86.0, 92, 0, 10.6, 0, 40, 5.3],
+  [75.2, 22.0, 85.5, 102, 0, 10.1, 0, 40, 5.3],
   // close orbit: dive to 1.7 rs and look up along the edge of the shadow; closest at 86 s
   [80.0, 7.2, 82.0, 138, 0, 22, -4, 56, 3.6],
   [82.4, 3.7, 80.5, 166, 0, 60, -9, 78, 1.7],
@@ -117,8 +117,9 @@ const WIPE = [[60, 0], [67.2, 0], [69.2, 1], [73.6, 1], [75.6, 0], [76, 0]];
 // Telescope blur divider for the payoff: blurred to the right of the divider. It stops at the
 // centre, so the frame ends as a side-by-side: sharp on the left, EHT resolution on the right.
 const TELE = [[90, 0.67], [95.0, 0.67], [97.8, 0.5], [104.4, 0.5], [105.6, 1.05], [108, 1.05]];   // starts at the ring's right edge
-// the photon-sphere diagram interlude: the shot burns out to black completely (no second hole behind the
-// diagram) by raising the black point after tone mapping, so the darks go first and the hottest gas lingers
+// the photon-sphere diagram interlude: the shot goes out to black completely (no second hole behind the
+// diagram): exposure falls in linear light (the tone curve's shoulder keeps the hottest gas longest, and the
+// whole shape stays intact), cooling in colour, with a final crush to true black
 const CRUSH = [[0, 0], [37.0, 0], [38.4, 1], [48.0, 1], [49.2, 0], [108, 0]];
 
 // Brighter background sky on the dive: the static observer deep in the potential sees
@@ -171,8 +172,8 @@ export const CUES = [
 
   // gravity and ISCO: hole on the left, the explanation in a right-hand column over sky
   { t0: 15.6, t1: 29.0, kind: 'headline', text: 'Gravity bends light', x: 1200, y: 150 },
-  { t0: 17.4, t1: 22.6, kind: 'caption', text: 'You’re seeing the disk’s far side.', x: 1200, y: 214 },
-  { t0: 23.0, t1: 28.6, kind: 'caption', text: 'Bent over the top, and under.', x: 1200, y: 214 },
+  { t0: 17.0, t1: 21.0, kind: 'caption', text: 'You’re seeing the disk’s far side.', x: 1200, y: 214 },
+  { t0: 21.2, t1: 28.8, kind: 'caption', text: 'Bent over the top, and under.', x: 1200, y: 214 },
 
   { t0: 33.2, t1: 48.2, kind: 'headline', text: 'The photon sphere', x: 120, y: 150 },
   { t0: 34.4, t1: 42.4, kind: 'caption', text: 'Here, light itself can orbit.', x: 120, y: 214 },
@@ -185,7 +186,7 @@ export const CUES = [
   { t0: 63.0, t1: 67.6, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
   { t0: 67.7, t1: 73.9, kind: 'headline', text: 'How _Interstellar_ showed it', x: 960, y: 150, align: 'center' },
   { t0: 67.9, t1: 73.9, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
-  { t0: 74.0, t1: 76.6, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
+  { t0: 74.1, t1: 77.0, kind: 'caption', text: 'And back to the real view.', x: 960, y: 190, align: 'center' },
 
   { t0: 81.3, t1: 86.8, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
   { t0: 81.5, t1: 86.8, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },

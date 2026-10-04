@@ -475,3 +475,24 @@ and thinner instead of dashed).
 
 Also: the Doppler shot tilted up another 0.8° for room above the arc; one stroke-weight system across the
 diagrams (paths 2.4–2.6 px, references 1.8 px); the ISCO legend swatch matches its path.
+
+### Round 12 — remaining findings and what was done
+
+1. **The photon diagram's "orbits, then leaves" ray never visibly orbited.** This exposed a real bug: the diagram's
+   rays were traced with a Cartesian integrator, which cannot hold an impact parameter within 10⁻⁶ of critical over
+   the long approach, so the "critical" ray only came within 3.03 M and swept ≈ 345° near the sphere. → The photon
+   diagram is now traced in u(φ), the same Binet form the shader uses: at b = √27 M (1 + 5.6 × 10⁻¹⁰) the ray
+   circles ≈ 2.9 times within 0.001 M of r = 3M (≈ 0.1 px), so its laps draw one crisp circle — the orbit itself —
+   and it then leaves down-left, inside the escaping neighbour, so no paths cross.
+2. **The burn-out midpoint looked like a luminance key.** → The shot now goes out by exposure in linear light, before
+   the tone curve (the curve's shoulder keeps the hottest gas longest and the whole shape stays intact), cooling in
+   colour, with only a final crush to true black.
+3. **The 3 rₛ ring read as an open path.** → Closed, in its own style (long dashes); "3 rₛ" sits outside it in the gap
+   before the stable orbit (now drawn at 5 rₛ for room) on a short leader; the legend's white swatch carries the
+   orbiting dot.
+4. **Two captions late.** → "Bent over the top, and under." now arrives as the under-rays start drawing (21.2 s); the
+   return line is set as a caption ("And back to the real view.") and lands a quarter of the way into the morph.
+5. **The gravity diagram was a footnote.** → 1.35× larger (it now fills x 1157–1805, the width of the column), with
+   2.8 px rays.
+
+Also: the Doppler shot tilted up a further 0.7° for clear space above the arc.

@@ -220,9 +220,10 @@ void main() {
   v.g *= 1.0 - 0.07 * dk; v.b *= 1.0 - 0.15 * dk;
   // a filmic black: lifted by ~1.5/255 so grain lives in the shadows too
   if (uCrush > 0.0) {
-    // burn by luminance with each pixel's colour kept: the darks go first, the hottest gas lingers
+    // exposure already falls in linear light; this only takes the last of it to true black
+    float cr = smoothstep(0.55, 1.0, uCrush);
     float Lb = max(dot(v, vec3(0.2126, 0.7152, 0.0722)), 1e-5);
-    v *= max(Lb - 0.85 * uCrush, 0.0) / (Lb * (1.0 - 0.8 * uCrush)) * (1.0 - smoothstep(0.85, 1.0, uCrush));
+    v *= max(Lb - 0.3 * cr, 0.0) / (Lb * (1.0 - 0.28 * cr)) * (1.0 - smoothstep(0.88, 1.0, uCrush));
     // and what lingers cools as it goes: white toward orange toward deep ember
     v *= mix(vec3(1.0), vec3(1.0, 0.56, 0.26), smoothstep(0.0, 0.6, uCrush));
   }

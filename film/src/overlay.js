@@ -119,19 +119,25 @@ const RAYS_GEO = (() => {
 export const RAY_DRAW = 2.6;
 export const PLUNGE = { st: 1.6, dur: 6.4 };
 
-// Top view for the photon sphere: parallel rays from the left at impact parameters near sqrt(27) M
+// Top view for the photon sphere: parallel rays from the left at impact parameters near sqrt(27) M,
+// integrated in u(phi) (the Binet form, as in the shader): near the critical value the orbit is
+// exponentially sensitive, and a Cartesian integration loses the laps. At b = bc (1 + 5.6e-10) the ray
+// circles ≈ 2.9 times within 0.001 M of r = 3M, then leaves down-left, inside the escaping neighbour
+// (so the two never cross) and clear of the incoming rays.
 const PHOTON_GEO = (() => {
   const bc = Math.sqrt(27);
   const set = [
-    { b: bc * (1 + 2e-6), main: true },
+    { b: bc * (1 + 5.6e-10), main: true },
     { b: bc * 1.15, kind: 'escapes' }, { b: bc * 0.9, kind: 'falls' },   // one neighbour escapes, one falls in
   ];
   return set.map((s) => {
-    const r = traceCartesian(-60, s.b, 1, 0, { maxLen: 260, stop: (x0, y0, x1, y1) => (x1 < -60 || x1 > 60 || Math.abs(y1) > 60 ? 'out' : null) });
-    // traced from far away (exact shape), drawn from just outside the visible area so the
-    // drawing time is spent where the bending happens
-    const i0 = Math.max(0, r.pts.findIndex(([x]) => x > -13));
-    return { ...s, pts: r.pts.slice(i0), end: r.end };
+    const r = P.traceLight({ b: s.b, r0: 60, dphi: 0.002, maxPhi: 60 });
+    // light arrives from the left above the hole and is turned clockwise
+    const th0 = Math.PI - Math.asin(s.b / 60);
+    const pts = r.pts.map(([rr, ph]) => [rr * Math.cos(th0 - ph), rr * Math.sin(th0 - ph)]);
+    // drawn from just outside the visible area, so the drawing time is spent where the bending happens
+    const i0 = Math.max(0, pts.findIndex(([x]) => x > -13));
+    return { ...s, pts: pts.slice(i0), end: r.captured ? 'horizon' : 'out' };
   });
 })();
 
@@ -158,7 +164,7 @@ export function mainProg(lt) {
 // Top view for the ISCO: a stable circular orbit outside it, and matter released inside it (2.6 rs, with
 // the ISCO's own angular momentum) spiralling into the horizon in ≈ 1.3 turns (timelike geodesics)
 const ISCO_GEO = (() => {
-  const stableR = 9.0, plungeR = 5.2;
+  const stableR = 10.0, plungeR = 5.2;
   const st = P.traceMatter({ r0: stableR, L: P.circularL(stableR), dphi: 0.01, maxPhi: 2 * Math.PI + 0.02 });
   const pl = P.traceMatter({ r0: plungeR, L: P.circularL(6), ur0: 0.0, dphi: 0.01, maxPhi: 30 * Math.PI });
   const toXY = (pts) => pts.map(([r, phi]) => [r * Math.cos(phi), r * Math.sin(phi)]);
@@ -449,16 +455,11 @@ export class Overlay {
       this.circle(ctx, cx, cy, 3 * scale, 'photon sphere');
     }
     if (isco) {
-      // solid, and broken where its label "3 rₛ" sits on the line itself
-      ctx.setLineDash([]);
+      // a closed reference ring in its own style (long dashes), distinct from the paths
+      ctx.setLineDash([10, 7]);
       ctx.lineWidth = 2.0;
       ctx.strokeStyle = rgba(COL.white, 0.9);
-      // (the gap is at the lower right, 30 deg below the horizontal, where the spiral is furthest inside)
-      const r = 6 * scale, gap = 0.36, at = Math.PI / 6;
-      ctx.beginPath(); ctx.arc(cx, cy, r, at + gap, at - gap + 2 * Math.PI); ctx.stroke();
-      const pts = [];
-      for (let k = 0; k <= 80; k++) { const t = at + gap + (k / 80) * (2 * Math.PI - 2 * gap); pts.push([cx + r * Math.cos(t), cy + r * Math.sin(t)]); }
-      this.lines.push({ pts, kind: 'ISCO ring', a: this.diagA });
+      this.circle(ctx, cx, cy, 6 * scale, 'ISCO ring');
     }
     ctx.restore();
   }
@@ -500,9 +501,9 @@ export class Overlay {
     const ctx = this.ctx;
     if (p.id === 'rays') {
       // side view in the right-hand column (x 1330–1810), clear of the real disk's tail
-      const sc = 10, cx = 1500, cy = 400;
+      const sc = 13.5, cx = 1400, cy = 400;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
-      const o = this.beginDiagram(1570, cy, 330, 210, a);
+      const o = this.beginDiagram(cx + 6 * sc, cy, 470, 175, a);
       // the disk: a soft, heavier bar, distinct from the rays
       for (const [x0, x1] of [[-DISK_OUT, -6], [6, DISK_OUT]]) {
         const g = o.createLinearGradient(cx + x0 * sc, 0, cx + x1 * sc, 0);
@@ -516,7 +517,7 @@ export class Overlay {
       for (const ray of RAYS_GEO.rays) {
         const prog = smootherstep(ray.st, ray.st + RAY_DRAW, lt);
         if (prog <= 0) continue;
-        this.path(o, ray.pts, map, prog, { color: rgba(COL.white, 0.9), width: 2.4 }, true, `${ray.kind} ray`);
+        this.path(o, ray.pts, map, prog, { color: rgba(COL.white, 0.9), width: 2.8 }, true, `${ray.kind} ray`);
         // emission point on the disk
         const [ex, ey] = map(ray.pts[0]);
         o.fillStyle = rgba(COL.white, 0.95 * Math.min(1, prog * 4));
@@ -529,7 +530,7 @@ export class Overlay {
       this.endDiagram();
       const la = a * smoothstep(3.5, 4.5, lt);
       this.text('you', 'label', ox + 12, oy - 28, la, 'right');
-      this.dlabel(ctx, 'far side of the disk', cx - (DISK_OUT - 0.4) * sc, cy + 5, cx - DISK_OUT * sc, cy + 122, la, 'left');
+      this.dlabel(ctx, 'far side of the disk', cx - (DISK_OUT - 0.4) * sc, cy + 5, cx - DISK_OUT * sc, cy + 150, la, 'left');
     } else if (p.id === 'photon') {
       // full-frame interlude over black: top view of light passing the hole
       const sc = 58, cx = 960, cy = 600;
@@ -597,7 +598,13 @@ export class Overlay {
         const pt = ray && ray.pts.find(([x, y]) => y < -5.0 && Math.abs(x) < 9);
         if (pt && ta > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, txt, ex, ey, ex + dx, ey + 70, ta, align); }
       };
-      tag(R('main'), 'orbits, then leaves', -40, 'right', T.branch + 1.3);
+      // the circling ray is named where it leaves the sphere (first point past 5.5 M after its laps)
+      {
+        const m = R('main');
+        const ta = a * smoothstep(T.branch + 1.3, T.branch + 2.1, lt);
+        const k = m.pts.findIndex(([x, y], i) => i > 200 && Math.hypot(x, y) > 5.5 && m.pts.slice(0, i).some(([px, py]) => Math.hypot(px, py) < 3.1));
+        if (k > 0 && ta > 0) { const [ex, ey] = map(m.pts[k]); this.dlabel(ctx, 'orbits, then leaves', ex, ey, ex - 40, ey + 90, ta, 'right'); }
+      }
       tag(R('escapes'), 'escapes', 40, 'left', T.branch + 2.0);
     } else if (p.id === 'isco') {
       // right-hand column, over the dimmer receding side of the disk
@@ -635,13 +642,19 @@ export class Overlay {
       ctx.lineCap = 'round';
       ctx.globalAlpha = la; ctx.strokeStyle = rgba(COL.white, 0.85); ctx.lineWidth = 1.8;
       ctx.beginPath(); ctx.moveTo(lx, ly - 11); ctx.lineTo(lx + 34, ly - 11); ctx.stroke();
+      ctx.fillStyle = rgba(COL.white, 0.95); ctx.beginPath(); ctx.arc(lx + 34, ly - 11, 4, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = pa; ctx.strokeStyle = rgba(COL.ember, 0.95); ctx.lineWidth = 2.4;
       ctx.beginPath(); ctx.moveTo(lx, ly + 33); ctx.lineTo(lx + 34, ly + 33); ctx.stroke();
       ctx.fillStyle = rgba(COL.ember, 0.95); ctx.beginPath(); ctx.arc(lx + 34, ly + 33, 4, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
       this.text('stays in orbit', 'label', lx + 50, ly, la, 'left');
       this.text('spirals in', 'label', lx + 50, ly + 44, pa, 'left', COL.ember);
-      this.text('3 rₛ', 'label', cx + 6 * sc * Math.cos(Math.PI / 6), cy + 6 * sc * Math.sin(Math.PI / 6) + 12, la, 'center');
+      // "3 rₛ" in the gap between the reference ring and the stable orbit, on a short leader
+      {
+        const ang = Math.PI / 7, r0 = 6 * sc;
+        const ax = cx + r0 * Math.cos(ang), ay = cy + r0 * Math.sin(ang);
+        this.dlabel(ctx, '3 rₛ', ax, ay, cx + 6.6 * sc, ay + 14, la, 'left');
+      }
     }
   }
 
