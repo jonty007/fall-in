@@ -91,6 +91,9 @@ const CAM = [
 const ch = (k) => CAM.map((row) => [row[0], k === 1 ? Math.log(row[1]) : row[k]]);
 const CH = { r: ch(1), incl: ch(2), az: ch(3), yaw: ch(4), pitch: ch(5), roll: ch(6), fov: ch(7), exposure: ch(8) };
 
+// closest approach of the camera (M), for readouts that should not tick
+export const R_CLOSE = Math.min(...CAM.map((row) => row[1]));
+
 export function cameraAt(t) {
   return {
     r: Math.exp(monotone(CH.r, t)),
@@ -144,7 +147,7 @@ export function effectsAt(t) {
   const wipeX = monotone(WIPE, t);
   const teleX = monotone(TELE, t);
   const fadeIn = smootherstep(0.0, 2.2, t);
-  const fadeOut = 1 - 0.25 * smootherstep(104.6, 105.8, t);
+  const fadeOut = (1 - 0.25 * smootherstep(104.6, 105.8, t)) * (1 - smootherstep(107.25, 107.85, t));
   return {
     wipe: [0, 0, 0, 1 - Math.min(Math.max(wipeX, 0), 1)],   // x, softness, split on/off, beaming amount
     teleSplit: [teleX, 0.004, t > 94 && t < 105.8 ? 1 : 0, 0],
@@ -181,16 +184,18 @@ export const CUES = [
   { t0: 63.0, t1: 67.0, kind: 'caption', text: (P) => `Approaching side: up to ${Math.round(Math.pow(P.gApp / P.gRec, 4))}× brighter than receding.`, x: 960, y: 214, align: 'center' },
   { t0: 69.0, t1: 73.6, kind: 'headline', text: 'How Interstellar showed it', x: 960, y: 150, align: 'center' },
   { t0: 69.4, t1: 73.6, kind: 'caption', text: 'Doppler left out, on purpose.', x: 960, y: 214, align: 'center' },
+  { t0: 73.8, t1: 75.6, kind: 'headline', text: 'And back to the real view', x: 960, y: 150, align: 'center' },
 
-  { t0: 80.8, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
-  { t0: 81.2, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
+  { t0: 79.4, t1: 85.9, kind: 'headline', text: 'Just outside the photon sphere', x: 120, y: 740 },
+  { t0: 79.8, t1: 85.9, kind: 'caption', text: 'The shadow covers ≈ 40% of the sky.', x: 120, y: 804 },
 
   { t0: 92.0, t1: 104.2, kind: 'headline', text: 'What a telescope would see', x: 960, y: 150, align: 'center' },
-  { t0: 94.6, t1: 99.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
+  { t0: 95.2, t1: 99.4, kind: 'caption', text: 'Our render, blurred to EHT resolution.', x: 960, y: 214, align: 'center' },
   { t0: 99.8, t1: 104.2, kind: 'caption', text: 'Like M87* (EHT, 2019): brighter at the bottom.', x: 960, y: 214, align: 'center' },
 
-  { t0: 105.4, t1: 108.2, kind: 'title', text: 'FALL IN', x: 960, y: 760, align: 'center', fade: 0.5 },
-  { t0: 105.7, t1: 108.2, kind: 'credit', text: 'Made by @vivekst1 with Claude Opus 5.5 from one prompt', x: 960, y: 858, align: 'center', fade: 0.5 },
+  // the 3 s end card: in by 105.4 s, held, then picture and type fade out together to black by 107.85 s
+  { t0: 104.9, t1: 107.85, kind: 'title', text: 'FALL IN', x: 960, y: 760, align: 'center', fade: 0.55 },
+  { t0: 105.05, t1: 107.85, kind: 'credit', text: 'Made by @vivekst1 with Claude Opus 5.5 from one prompt', x: 960, y: 858, align: 'center', fade: 0.55 },
 ];
 
 // Readout blocks (mono). `lines` is a function of (t, cam, phys) so physics values
@@ -198,9 +203,10 @@ export const CUES = [
 export const READOUTS = [
   { t0: 50.0, t1: 59.2, x: 1200, y: 960, lines: (t, c, P) => [`orbital speed  ${P.isco.v.toFixed(1)} c`] },
   // Doppler: one block over the sky on each side of the hole, tied to the side it describes
-  { t0: 63.2, t1: 67.0, x: 120, y: 420, leader: [300, 610], lines: () => ['approaching'] },
-  { t0: 63.2, t1: 67.0, x: 1800, y: 420, align: 'right', leader: [1620, 615], lines: () => ['receding'] },
-  { t0: 81.4, t1: 85.9, x: 120, y: 900, lines: (t, c, P) => [`distance   ${(c.r / 2).toFixed(2)} rₛ`, `time runs  ${((1 - P.clockRate(c.r)) * 100).toFixed(0)}% slower`, `starlight  ${(1 / P.clockRate(c.r)).toFixed(2)}× bluer`] },
+  { t0: 63.2, t1: 67.0, x: 120, y: 420, kind: 'caption', leader: [250, 720], lines: () => ['approaching'] },
+  { t0: 63.2, t1: 67.0, x: 1800, y: 420, kind: 'caption', align: 'right', leader: [1660, 720], lines: () => ['receding'] },
+  // values at the closest point of the orbit (they do not tick while you read them)
+  { t0: 80.4, t1: 85.9, x: 120, y: 900, lines: (t, c, P) => [`time runs  ${((1 - P.clockRate(R_CLOSE)) * 100).toFixed(0)}% slower`, `starlight  ${(1 / P.clockRate(R_CLOSE)).toFixed(2)}× bluer`] },
 ];
 
 // Small labels pinned to screen positions

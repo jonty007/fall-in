@@ -346,3 +346,24 @@ brighter, as in the 2017 EHT image); the right-hand column starts at x = 1200 in
 and no diagram passes x = 1800; the gravity rays are 3 px; the ISCO ring label moved to where the spiral is
 furthest inside it; grain in the blacks raised a little. Not changed: the three type families. The brief asks
 for two @fontsource typefaces plus a monospace, and the mono is kept only for the numeric readouts.
+
+### Round 6 — five worst findings and what was done
+
+1. **Photon diagram: a "doubled circle" and a label pair that read as one sentence.** The circling ray only
+   approaches r = 3M asymptotically, so it drifted 10–12 px off the dashed guide. → The guide is gone: the
+   circling ray itself traces the photon sphere and carries the "photon sphere, 1.5 rₛ" label; "falls in" is the
+   only word inside the hole (no "horizon" stacked above it); the escaping ray is a cream dashed line, so orange
+   means only "falls in".
+2. **The film ended on a lit frame.** → Within the brief's 3 s card: title and credit are in by 105.4 s, held, and
+   picture and type fade out together (107.25–107.85 s) to true black for the last frames.
+3. **Payoff caption ahead of the picture; raw seam.** → The caption now starts with the blur wipe (95.2 s); the
+   seam carries a soft cream hairline (built from three soft strokes so the 2× Lanczos downscale cannot ring)
+   running just past the disk; "sharp" and "EHT resolution" are centred under their halves.
+4. **Doppler side labels in the monospace, 1 px leaders, dots on the haze.** → Labels in Jost at caption size,
+   2 px leaders, end dots with a dark rim placed on the white-hot left side and the dim right side.
+5. **Close-orbit card: too much text for its time, with ticking numbers.** → On screen ≈ 6.5 s (from 79.4 s);
+   the distance row dropped; the two remaining values are those at the closest point of the orbit (computed from
+   the camera path), so nothing ticks while you read.
+
+Also from round 6: the return morph gets its own headline ("And back to the real view"); the gravity diagram is
+lifted 70 px, away from the rendered disk's wing; the title kerns I–N a little tighter.

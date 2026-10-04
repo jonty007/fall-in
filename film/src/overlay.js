@@ -150,6 +150,7 @@ const ISCO_GEO = (() => {
 // Rich text: subscripts (ₛ), superscripts (¹²³⁴) and a drawn "≈", because none of the
 // three typefaces carries those glyphs and a system fallback would not match.
 const SUB = { 'ₛ': 's' }, SUP = { '¹': '1', '²': '2', '³': '3', '⁴': '4' };
+const KERN = { 'FALL IN': { IN: -0.035 } };   // em; letter-spacing is included by measureText
 function runs(str) {
   const out = [];
   let buf = '';
@@ -199,18 +200,21 @@ export class Overlay {
       const a = this.env(t, r.t0, r.t1, 0.7);
       if (a <= 0) continue;
       const lines = r.lines(t, cam, PHYS);
-      lines.forEach((line, i) => this.text(line, 'mono', r.x, r.y + i * 46, a, r.align));
+      const rk = r.kind || 'mono';
+      lines.forEach((line, i) => this.text(line, rk, r.x, r.y + i * 46, a, r.align));
       if (r.leader) {
         // a 1 px leader from under the block to the feature it describes
-        const b0 = this.textBox(lines[lines.length - 1], 'mono', r.x, r.y + (lines.length - 1) * 46, r.align);
+        const b0 = this.textBox(lines[lines.length - 1], rk, r.x, r.y + (lines.length - 1) * 46, r.align);
         const sx = r.align === 'right' ? b0.x1 - 40 : b0.x0 + 40, sy = b0.y1 + 10;
         const [ax, ay] = r.leader;
         ctx.save();
-        ctx.globalAlpha = a * 0.75;
-        ctx.strokeStyle = COL.white; ctx.lineWidth = 1;
+        ctx.globalAlpha = a * 0.85;
+        ctx.strokeStyle = COL.white; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ax, ay); ctx.stroke();
-        ctx.globalAlpha = a; ctx.fillStyle = COL.white;
-        ctx.beginPath(); ctx.arc(ax, ay, 3.5, 0, Math.PI * 2); ctx.fill();
+        // the end dot carries a dark rim so it holds on the bright disk too
+        ctx.globalAlpha = a;
+        ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.beginPath(); ctx.arc(ax, ay, 6.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = COL.white; ctx.beginPath(); ctx.arc(ax, ay, 4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
         this.lines.push({ pts: [[sx, sy], [ax, ay]], kind: 'readout leader', own: lines[lines.length - 1], a });
       }
@@ -314,7 +318,15 @@ export class Overlay {
         ctx.restore();
       } else {
         const dy = r.t === 'sub' ? f.size * 0.17 : r.t === 'sup' ? -f.size * 0.36 : 0;
-        ctx.fillText(r.s, cx, y + dy);
+        const k = KERN[r.s];
+        if (k && f === FONTS.title) {
+          // per-glyph with pair kerning (only the title needs it)
+          let gx = cx;
+          for (let i = 0; i < r.s.length; i++) {
+            ctx.fillText(r.s[i], gx, y + dy);
+            gx += ctx.measureText(r.s[i]).width + (k[r.s.slice(i, i + 2)] || 0) * f.size;
+          }
+        } else ctx.fillText(r.s, cx, y + dy);
       }
       cx += w;
     }
@@ -464,7 +476,7 @@ export class Overlay {
     const ctx = this.ctx;
     if (p.id === 'rays') {
       // side view in the right-hand column (x 1330–1810), clear of the real disk's tail
-      const sc = 10, cx = 1500, cy = 470;
+      const sc = 10, cx = 1500, cy = 400;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
       const o = this.beginDiagram(1570, cy, 330, 210, a);
       // the disk: a soft, heavier bar, distinct from the rays
@@ -499,19 +511,17 @@ export class Overlay {
       const sc = 58, cx = 960, cy = 600;
       const map = ([x, y]) => [cx + x * sc, cy - y * sc];
       const o = this.beginDiagram(cx, cy, 640, 330, a);
-      // the photon sphere faint, so the circling ray (drawn over it) is what reads
+      // no guide circle: the circling ray itself traces the photon sphere
       o.save();
       o.strokeStyle = rgba(COL.white, 0.8); o.lineWidth = 1.8;
       this.circle(o, cx, cy, 2 * sc, 'horizon');
-      o.setLineDash([5, 9]); o.strokeStyle = rgba(COL.white, 0.38);
-      this.circle(o, cx, cy, 3 * sc, 'photon sphere');
       o.restore();
       PHOTON_GEO.forEach((ray, i) => {
         const st = ray.main ? PHOTON_MAIN.st : 0.4 + i * 0.35;
         const prog = smootherstep(st, st + (ray.main ? PHOTON_MAIN.dur : 3.0), lt);
         if (prog <= 0) return;
         const style = ray.main ? { color: rgba(COL.white, 1), width: 3.2 }
-          : ray.kind === 'falls' ? { color: rgba(COL.ember, 0.95), width: 2.6 } : { color: rgba(COL.ember, 0.95), width: 2.6, dash: [10, 8] };
+          : ray.kind === 'falls' ? { color: rgba(COL.ember, 0.95), width: 2.6 } : { color: rgba(COL.white, 0.85), width: 2.4, dash: [10, 8] };
         if (style.dash) o.setLineDash(style.dash);
         this.path(o, ray.pts, map, prog, style, true, ray.main ? 'main ray' : `${ray.kind} ray`);
         o.setLineDash([]);
@@ -526,22 +536,15 @@ export class Overlay {
       });
       this.endDiagram();
       const la = a * smoothstep(1.2, 2.2, lt);
-      // labels placed where no ray passes: the horizon is named inside its circle, the photon
-      // sphere from its free left side (light arrives from the upper left and leaves downward)
-      this.text('horizon', 'label', cx, cy + 12, la, 'center');
-      this.dlabel(ctx, `photon sphere, ${(PHYS.ph.r / 2).toFixed(1)} rₛ`, cx - 3 * sc, cy, cx - 3 * sc - 76, cy + 12, la, 'right');
-      const tag = (ray, txt, dy, dx, align, col, t0) => {
-        const ta = a * smoothstep(t0, t0 + 0.8, lt);
-        const pt = ray.pts.find(([x, y]) => y < dy && Math.abs(x) < 9);
-        if (!pt || ta <= 0) return;
-        const [ex, ey] = map(pt);
-        this.dlabel(ctx, txt, ex, ey, ex + dx, ey + 70, ta, align, col);
-      };
-      const R = (k) => PHOTON_GEO.find((r) => (k === 'main' ? r.main : r.kind === k));
-      tag(R('main'), 'circles', -5.0, -40, 'right', COL.white, PHOTON_MAIN.st + PHOTON_MAIN.dur - 0.6);
-      tag(R('escapes'), 'escapes', -5.0, 40, 'left', COL.ember, 3.6);
-      // the falling ray is named inside the horizon, next to where it ends
-      this.text('falls in', 'label', cx, cy + 58, a * smoothstep(3.4, 4.2, lt), 'center', COL.ember);
+      // labels placed where no ray passes: the circling ray is named from its free left side
+      // (light arrives from the upper left and leaves downward), the falling ray inside the hole
+      this.dlabel(ctx, `photon sphere, ${(PHYS.ph.r / 2).toFixed(1)} rₛ`, cx - 3.03 * sc, cy, cx - 3 * sc - 76, cy + 12, a * smoothstep(PHOTON_MAIN.st + 2.6, PHOTON_MAIN.st + 3.4, lt), 'right');
+      this.text('falls in', 'label', cx, cy + 12, a * smoothstep(3.4, 4.2, lt), 'center', COL.ember);
+      const R = (k) => PHOTON_GEO.find((r) => r.kind === k);
+      const esc = R('escapes');
+      const ea = a * smoothstep(3.6, 4.4, lt);
+      const pt = esc && esc.pts.find(([x, y]) => y < -5.0 && Math.abs(x) < 9);
+      if (pt && ea > 0) { const [ex, ey] = map(pt); this.dlabel(ctx, 'escapes', ex, ey, ex + 40, ey + 70, ea, 'left'); }
     } else if (p.id === 'isco') {
       // right-hand column, over the dimmer receding side of the disk
       const sc = 26, cx = 1530, cy = 600;
@@ -561,9 +564,17 @@ export class Overlay {
   label(kind, t, a) {
     const ctx = this.ctx;
     if (kind === 'split') {
-      // the payoff ends side by side; each half is named just under the ring, either side of the seam
-      this.text('sharp', 'label', 936, 880, a, 'right');
-      this.text('EHT resolution', 'label', 984, 880, a, 'left');
+      // the payoff ends side by side: a soft cream hairline on the seam, running a little past the
+      // disk at both ends, and each half named under its own centre
+      ctx.save();
+      const g = ctx.createLinearGradient(0, 280, 0, 820);
+      g.addColorStop(0, rgba(COL.white, 0)); g.addColorStop(0.08, rgba(COL.white, 0.7)); g.addColorStop(0.92, rgba(COL.white, 0.7)); g.addColorStop(1, rgba(COL.white, 0));
+      ctx.globalAlpha = a;
+      for (const [w, al] of [[3.0, 0.25], [1.6, 0.6], [0.8, 1.0]]) { ctx.globalAlpha = a * al; ctx.fillStyle = g; ctx.fillRect(960 - w / 2, 280, w, 540); }
+      ctx.restore();
+      this.lines.push({ pts: [[960, 300], [960, 800]], kind: 'split line', a });
+      this.text('sharp', 'label', 830, 880, a, 'center');
+      this.text('EHT resolution', 'label', 1090, 880, a, 'center');
     }
   }
 }
