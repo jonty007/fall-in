@@ -55,7 +55,9 @@ Rough timing: on a recent desktop GPU most of the time is spent capturing 4K PNG
 1–2 hours). In this repository's build container, which has no GPU, one full-quality frame took ≈ 35–70 s in
 SwiftShader (≈ 4–5 minutes during the close orbit, where the photon ring fills the frame and gets 8× supersampling),
 so the full film would take days there; the container produced the stills, contact sheet, poster, score and the
-640×360 preview instead.
+640×360 preview instead (≈ 4 hours of SwiftShader time for the preview's 3240 frames at 960×540 before
+downscaling). `film/out/verify/` holds the delivery checks: full-resolution frames rendered at 0 s, 3 s, 54 s and
+107.97 s, and the same moments pulled from the preview file.
 
 ### Other scripts
 
